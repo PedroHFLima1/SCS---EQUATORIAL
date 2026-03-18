@@ -17,4 +17,4 @@ CREATE POLICY "Parceiras são visíveis para usuários autenticados"
   USING (auth.role() = 'authenticated');
 
 -- Inserir as duas parceiras solicitadas
-INSERT INTO public.partners (name) VALUES ('Afaplan'), ('Aplus');
+INSERT INTO public.partners (name) VALUES ('Afaplan'), ('Applus');

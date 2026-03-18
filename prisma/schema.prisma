@@ -14,7 +14,7 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
-  role      String   @default("PARCEIRO")
+  role      String   @default("PARCEIRA")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   notifications Notification[]

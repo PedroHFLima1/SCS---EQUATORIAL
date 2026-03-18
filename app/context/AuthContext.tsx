@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 
-type Role = 'ADMINISTRADOR' | 'GESTOR_TRAVESSIA' | 'GESTOR_AMBIENTAL' | 'GESTOR_ANUENCIA' | 'PARCEIRO' | 'CONCESSIONARIA';
+type Role = 'ADMIN' | 'GESTOR_TRAVESSIA' | 'GESTOR_AMBIENTAL' | 'GESTOR_ANUENCIA' | 'PARCEIRA';
 
 interface AuthContextType {
   role: Role;
@@ -23,7 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [role, setRoleState] = useState<Role>('PARCEIRO');
+  const [role, setRoleState] = useState<Role>('PARCEIRA');
   const [email, setEmailState] = useState<string>('');
   const [name, setNameState] = useState<string>('');
   const [company, setCompanyState] = useState<string>('');
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setEmailState(session.user.email || '');
         fetchProfile(session.user.id);
       } else {
-        setRoleState('PARCEIRO');
+        setRoleState('PARCEIRA');
         setEmailState('');
         setNameState('');
         setCompanyState('');
@@ -75,14 +75,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         console.error('Error fetching profile:', error);
         // Fallback role if profile not found
-        setRoleState('PARCEIRO');
+        setRoleState('PARCEIRA');
       } else if (data) {
         setNameState(data.name || '');
         setCompanyState(data.company || '');
         // Map database profile to app role
-        if (data.profile === 'ADMIN') setRoleState('ADMINISTRADOR');
-        else if (data.profile === 'CONCESSIONARIA') setRoleState('CONCESSIONARIA');
-        else setRoleState('PARCEIRO');
+        if (data.profile === 'ADMIN') {
+          setRoleState('ADMIN');
+        } else if (data.profile === 'GESTOR') {
+          const comp = (data.company || '').toLowerCase();
+          if (comp.includes('ambiental')) setRoleState('GESTOR_AMBIENTAL');
+          else if (comp.includes('anuência') || comp.includes('anuencia')) setRoleState('GESTOR_ANUENCIA');
+          else setRoleState('GESTOR_TRAVESSIA'); // Default to Travessia if not specified
+        } else {
+          setRoleState('PARCEIRA');
+        }
       }
     } catch (err) {
       console.error('Unexpected error fetching profile:', err);
@@ -99,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setEmailState(newEmail);
   };
 
-  const isAdmin = role === 'ADMINISTRADOR';
+  const isAdmin = role === 'ADMIN';
 
   return (
     <AuthContext.Provider value={{ role, setRole, email, setEmail, name, company, isAdmin, user, loading }}>

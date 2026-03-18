@@ -23,11 +23,11 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   }, []);
 
   const navItems = [
-    { name: 'TRAVESSIA', href: '/dashboard/travessia', icon: Route, section: 'MÓDULOS', allowedRoles: ['ADMINISTRADOR', 'GESTOR_TRAVESSIA'] },
-    { name: 'AMBIENTAL', href: '#', icon: Leaf, badge: 'EM DEV', section: 'MÓDULOS', allowedRoles: ['ADMINISTRADOR', 'GESTOR_AMBIENTAL'] },
-    { name: 'ANUÊNCIA', href: '#', icon: FileText, badge: 'EM DEV', section: 'MÓDULOS', allowedRoles: ['ADMINISTRADOR', 'GESTOR_ANUENCIA'] },
-    { name: 'PAINEL PARCEIRA', href: '/dashboard/parceira', icon: Briefcase, section: 'OPERAÇÃO', allowedRoles: ['PARCEIRO'] },
-    { name: 'PAINEL ADMIN', href: '/dashboard/admin', icon: Settings, section: 'CONFIGURAÇÕES', allowedRoles: ['ADMINISTRADOR'] },
+    { name: 'TRAVESSIA', href: '/dashboard/travessia', icon: Route, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_TRAVESSIA'] },
+    { name: 'AMBIENTAL', href: '#', icon: Leaf, badge: 'EM DEV', section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_AMBIENTAL'] },
+    { name: 'ANUÊNCIA', href: '#', icon: FileText, badge: 'EM DEV', section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_ANUENCIA'] },
+    { name: 'PAINEL PARCEIRA', href: '/dashboard/parceira', icon: Briefcase, section: 'OPERAÇÃO', allowedRoles: ['PARCEIRA'] },
+    { name: 'PAINEL ADMIN', href: '/dashboard/admin', icon: Settings, section: 'CONFIGURAÇÕES', allowedRoles: ['ADMIN'] },
   ];
 
   const visibleNavItems = navItems.filter(item => item.allowedRoles.includes(role));

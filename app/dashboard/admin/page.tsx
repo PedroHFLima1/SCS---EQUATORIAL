@@ -8,10 +8,10 @@ import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers }
 
 // Mock Data for Master Audit
 const masterProcesses = [
-  { id: '1', inscricao: '991203', projeto: 'TRAV_01', module: 'Travessia', partner: 'APPLUS', status: 'NOVO', protocol: 'Não gerado', sla: 2, concessionaria: 'Equatorial MA' },
-  { id: '2', inscricao: '881440', projeto: 'AMB_02', module: 'Ambiental', partner: 'INFOTEC', status: 'CORREÇÃO', protocol: 'Não gerado', sla: 12, concessionaria: 'Equatorial PA' },
-  { id: '3', inscricao: '765209', projeto: 'ANU_03', module: 'Anuência', partner: 'TRACTEBEL', status: 'FINALIZADO', protocol: 'A-123456', sla: 35, concessionaria: 'Equatorial PI' },
-  { id: '4', inscricao: '543190', projeto: 'TRAV_04', module: 'Travessia', partner: 'APPLUS', status: 'PROTOCOLADO', protocol: 'P-987654', sla: 1, concessionaria: 'Equatorial AL' },
+  { id: '1', inscricao: '991203', projeto: 'TRAV_01', module: 'Travessia', partner: 'Applus', status: 'NOVO', protocol: 'Não gerado', sla: 2, concessionaria: 'Equatorial MA' },
+  { id: '2', inscricao: '881440', projeto: 'AMB_02', module: 'Ambiental', partner: 'Afaplan', status: 'CORREÇÃO', protocol: 'Não gerado', sla: 12, concessionaria: 'Equatorial PA' },
+  { id: '3', inscricao: '765209', projeto: 'ANU_03', module: 'Anuência', partner: 'Afaplan', status: 'FINALIZADO', protocol: 'A-123456', sla: 35, concessionaria: 'Equatorial PI' },
+  { id: '4', inscricao: '543190', projeto: 'TRAV_04', module: 'Travessia', partner: 'Applus', status: 'PROTOCOLADO', protocol: 'P-987654', sla: 1, concessionaria: 'Equatorial AL' },
 ];
 
 export default function AdminPage() {
@@ -27,9 +27,10 @@ export default function AdminPage() {
   const [userToToggle, setUserToToggle] = useState<string | null>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
-  const [userFormData, setUserFormData] = useState({ name: '', email: '', profile: 'PARCEIRO', company: '' });
+  const [userFormData, setUserFormData] = useState({ name: '', email: '', profile: 'PARCEIRA', company: '' });
   const [userFormError, setUserFormError] = useState('');
   const [userFormLoading, setUserFormLoading] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [partners, setPartners] = useState<any[]>([]);
 
   useEffect(() => {
@@ -41,12 +42,14 @@ export default function AdminPage() {
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
+    setUsersError(null);
     try {
       const result = await getUsers();
       if (result.error) throw new Error(result.error);
       setUsers(result.users || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching users:', err);
+      setUsersError(err.message);
     } finally {
       setLoadingUsers(false);
     }
@@ -145,14 +148,14 @@ export default function AdminPage() {
   // User Actions
   const openAddUserModal = () => {
     setEditingUser(null);
-    setUserFormData({ name: '', email: '', profile: 'PARCEIRO', company: '' });
+    setUserFormData({ name: '', email: '', profile: 'PARCEIRA', company: '' });
     setUserFormError('');
     setIsUserModalOpen(true);
   };
 
   const openEditUserModal = (user: any) => {
     setEditingUser(user);
-    setUserFormData({ name: user.name || '', email: user.email || '', profile: user.profile || 'PARCEIRO', company: user.company || '' });
+    setUserFormData({ name: user.name || '', email: user.email || '', profile: user.profile || 'PARCEIRA', company: user.company || '' });
     setUserFormError('');
     setIsUserModalOpen(true);
   };
@@ -170,7 +173,7 @@ export default function AdminPage() {
       if (editingUser) {
         const result = await updateUser(editingUser.id, {
           name: userFormData.name,
-          profile: userFormData.profile,
+          profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
           company: userFormData.company,
         });
 
@@ -182,7 +185,7 @@ export default function AdminPage() {
         const result = await createUser({
           email: userFormData.email,
           name: userFormData.name,
-          profile: userFormData.profile,
+          profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
           company: userFormData.company,
         });
 
@@ -312,7 +315,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Parceira mais Atarefada</p>
-              <p className="mt-2 text-xl font-bold text-gray-900 dark:text-white">APPLUS</p>
+              <p className="mt-2 text-xl font-bold text-gray-900 dark:text-white">Applus</p>
               <p className="text-xs text-gray-500 mt-1">45 projetos no backlog</p>
             </div>
             <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-3">
@@ -388,6 +391,30 @@ export default function AdminPage() {
               NOVO USUÁRIO
             </button>
           </div>
+          
+          {usersError && (
+            <div className="m-4 rounded-md bg-red-50 dark:bg-red-900/30 p-4 border border-red-200 dark:border-red-800">
+              <div className="flex">
+                <ShieldAlert className="h-5 w-5 text-red-400 mr-3" />
+                <div>
+                  <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                    Erro ao carregar usuários
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                    <p>{usersError}</p>
+                    <p className="mt-2 font-semibold">Para corrigir:</p>
+                    <ul className="list-disc pl-5 mt-1">
+                      <li>Abra as <strong>Configurações</strong> (ícone de engrenagem no canto superior direito do AI Studio).</li>
+                      <li>Vá em <strong>Secrets</strong>.</li>
+                      <li>Adicione uma nova chave chamada <code>SUPABASE_SERVICE_ROLE_KEY</code>.</li>
+                      <li>Cole a sua chave de serviço do Supabase como valor.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
               <thead className="bg-gray-50 dark:bg-gray-950/50 text-xs uppercase text-gray-500 dark:text-gray-400">
@@ -530,9 +557,8 @@ export default function AdminPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas</option>
-                  <option>APPLUS</option>
-                  <option>INFOTEC</option>
-                  <option>TRACTEBEL</option>
+                  <option>Afaplan</option>
+                  <option>Applus</option>
                 </select>
               </div>
               <div className="w-full shrink-0">
@@ -755,7 +781,8 @@ export default function AdminPage() {
                   value={userFormData.email}
                   onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
                   placeholder="exemplo@empresa.com"
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
+                  disabled={!!editingUser}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-800"
                 />
               </div>
               <div>
@@ -767,8 +794,8 @@ export default function AdminPage() {
                 >
                   <option value="">Selecione o Perfil</option>
                   <option value="ADMIN">Administrador</option>
-                  <option value="CONCESSIONARIA">Concessionária</option>
-                  <option value="PARCEIRO">Parceiro</option>
+                  <option value="GESTOR">Gestor</option>
+                  <option value="PARCEIRA">Parceira</option>
                 </select>
               </div>
               <div>
@@ -778,12 +805,23 @@ export default function AdminPage() {
                   onChange={(e) => setUserFormData({ ...userFormData, company: e.target.value })}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
-                  <option value="">Selecione a Empresa</option>
-                  <option value="Equatorial">Equatorial</option>
-                  <option value="Applus">Applus</option>
-                  <option value="Infotec">Infotec</option>
-                  <option value="Tractebel">Tractebel</option>
-                  <option value="Outra Empresa">Outra Empresa</option>
+                  <option value="">Selecione a Empresa/Módulo</option>
+                  {userFormData.profile === 'GESTOR' && (
+                    <>
+                      <option value="Travessia">Módulo Travessia</option>
+                      <option value="Ambiental">Módulo Ambiental</option>
+                      <option value="Anuência">Módulo Anuência</option>
+                    </>
+                  )}
+                  {userFormData.profile === 'PARCEIRA' && (
+                    <>
+                      <option value="Afaplan">Afaplan</option>
+                      <option value="Applus">Applus</option>
+                    </>
+                  )}
+                  {userFormData.profile === 'ADMIN' && (
+                    <option value="Equatorial">Equatorial</option>
+                  )}
                 </select>
               </div>
             </div>
@@ -850,9 +888,8 @@ export default function AdminPage() {
                   onChange={(e) => setEditFormData({...editFormData, partner: e.target.value})}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
-                  <option value="APPLUS">APPLUS</option>
-                  <option value="INFOTEC">INFOTEC</option>
-                  <option value="TRACTEBEL">TRACTEBEL</option>
+                  <option value="Afaplan">Afaplan</option>
+                  <option value="Applus">Applus</option>
                 </select>
               </div>
 

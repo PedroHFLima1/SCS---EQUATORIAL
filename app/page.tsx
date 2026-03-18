@@ -19,15 +19,14 @@ export default function LoginPage() {
   const { role, user, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
   useEffect(() => {
     if (user && !authLoading) {
-      if (role === 'ADMINISTRADOR') {
+      if (role === 'ADMIN') {
         router.push('/dashboard/admin');
-      } else if (role === 'PARCEIRO') {
+      } else if (role === 'PARCEIRA') {
         router.push('/dashboard/parceira');
       } else {
         router.push('/dashboard/travessia');

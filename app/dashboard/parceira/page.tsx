@@ -52,11 +52,11 @@ export default function ParceiraPage() {
     }
   };
 
-  const canAccess = role === 'PARCEIRO';
+  const canAccess = role === 'PARCEIRA';
 
   // Initialize parceiraFilter based on user company if partner
   const initialParceira = useMemo(() => {
-    if (role === 'PARCEIRO' && company) {
+    if (role === 'PARCEIRA' && company) {
       return company;
     }
     return 'Todas';
@@ -81,7 +81,7 @@ export default function ParceiraPage() {
     let result = Array.isArray(processes) ? processes : [];
 
     // Filter by Partner based on company
-    if (role === 'PARCEIRO' && company) {
+    if (role === 'PARCEIRA' && company) {
       result = result.filter(p => p.partner === company);
     }
 
@@ -128,7 +128,7 @@ export default function ParceiraPage() {
     });
 
     return result;
-  }, [processes, email, role, globalSearch, searchInscricao, searchProjeto, tipoProjetoFilter, statusFilter, concessionariaFilter, parceiraFilter, sortBy]);
+  }, [processes, role, company, globalSearch, searchInscricao, searchProjeto, tipoProjetoFilter, statusFilter, concessionariaFilter, parceiraFilter, sortBy]);
 
   if (!canAccess) {
     return (

@@ -40,7 +40,7 @@ export default function TravessiaPage() {
 
   // Initialize parceiraFilter based on user company if partner
   const initialParceira = useMemo(() => {
-    if (role === 'PARCEIRO' && company) {
+    if (role === 'PARCEIRA' && company) {
       return company;
     }
     return 'Todas';
@@ -85,13 +85,13 @@ export default function TravessiaPage() {
     }
   };
 
-  const canAccess = role === 'ADMINISTRADOR' || role === 'GESTOR_TRAVESSIA';
+  const canAccess = role === 'ADMIN' || role === 'GESTOR_TRAVESSIA';
 
   const filteredProcesses = useMemo(() => {
     let result = Array.isArray(processes) ? processes : [];
 
     // Filter by Partner based on company
-    if (role === 'PARCEIRO' && company) {
+    if (role === 'PARCEIRA' && company) {
       result = result.filter(p => p.partner === company);
     }
 
@@ -139,7 +139,7 @@ export default function TravessiaPage() {
     });
 
     return result;
-  }, [processes, globalSearch, searchInscricao, searchProjeto, statusFilter, concessionariaFilter, parceiraFilter, sortBy]);
+  }, [processes, company, role, globalSearch, searchInscricao, searchProjeto, statusFilter, concessionariaFilter, parceiraFilter, sortBy]);
 
   if (!canAccess) {
     return (
@@ -310,10 +310,8 @@ export default function TravessiaPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas</option>
-                  <option>APPLUS</option>
-                  <option>INFOTEC</option>
-                  <option>TRACTEBEL</option>
-                  <option>ENGIE</option>
+                  <option>Afaplan</option>
+                  <option>Applus</option>
                 </select>
               </div>
             <div className="w-full shrink-0">
@@ -375,7 +373,7 @@ export default function TravessiaPage() {
                       <button onClick={() => handleSendEmail(process)} className="text-gray-400 hover:text-orange-600 dark:hover:text-orange-400" title="Enviar Email">
                         <Mail className="h-4 w-4" />
                       </button>
-                      {role === 'ADMINISTRADOR' && (
+                      {role === 'ADMIN' && (
                         <button onClick={() => confirmCancel(process)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Cancelar Processo">
                           <XCircle className="h-4 w-4" />
                         </button>

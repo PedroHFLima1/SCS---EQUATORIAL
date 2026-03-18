@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // 1. BLINDAGEM DE TIPOS: Definindo os valores exatos permitidos no sistema
-type UserProfileRole = 'ADMIN' | 'PARCEIRO' | 'CONCESSIONARIA';
+type UserProfileRole = 'ADMIN' | 'GESTOR' | 'PARCEIRA';
 type UserStatus = 'Ativo' | 'Inativo';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
