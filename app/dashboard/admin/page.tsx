@@ -733,6 +733,11 @@ export default function AdminPage() {
               </button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto">
+              {userFormError && (
+                <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-600 dark:text-red-400">
+                  {userFormError}
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Nome Completo</label>
                 <input
@@ -761,9 +766,9 @@ export default function AdminPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option value="">Selecione o Perfil</option>
-                  <option value="Administrador">Administrador</option>
-                  <option value="Gestor">Gestor</option>
-                  <option value="Parceiro">Parceiro</option>
+                  <option value="ADMIN">Administrador</option>
+                  <option value="CONCESSIONARIA">Concessionária</option>
+                  <option value="PARCEIRO">Parceiro</option>
                 </select>
               </div>
               <div>
@@ -791,9 +796,10 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={handleSaveUser}
-                className="rounded-md bg-[#1e293b] dark:bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:hover:bg-blue-700"
+                disabled={userFormLoading}
+                className="rounded-md bg-[#1e293b] dark:bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Salvar
+                {userFormLoading ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </div>
