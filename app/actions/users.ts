@@ -193,6 +193,50 @@ export async function toggleUserStatus(userId: string, currentStatus: UserStatus
   }
 }
 
+export async function requestPasswordReset(email: string) {
+  if (!supabaseServiceRoleKey) {
+    return { error: 'Chave de serviço do Supabase não configurada.' };
+  }
+
+  try {
+    // 1. Find user by email
+    const { data: profiles, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, last_password_reset')
+      .eq('email', email)
+      .single();
+
+    if (profileError || !profiles) {
+      return { error: 'Usuário não encontrado.' };
+    }
+
+    // 2. Check 60 days limit
+    if (profiles.last_password_reset) {
+      const lastReset = new Date(profiles.last_password_reset);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - lastReset.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 60) {
+        return { error: `Você só pode redefinir sua senha uma vez a cada 60 dias. Faltam ${60 - diffDays} dias.` };
+      }
+    }
+
+    // 3. Send reset email
+    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/reset-password`,
+    });
+
+    if (resetError) {
+      return { error: resetError.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'Erro inesperado ao solicitar redefinição de senha.' };
+  }
+}
+
 export async function resetUserPassword(userId: string) {
   if (!supabaseServiceRoleKey) {
     return { error: 'Chave de serviço do Supabase não configurada.' };
@@ -205,6 +249,16 @@ export async function resetUserPassword(userId: string) {
 
     if (error) {
       return { error: error.message };
+    }
+
+    // Update last_password_reset in profiles
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({ last_password_reset: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (profileError) {
+      console.error('Erro ao atualizar last_password_reset:', profileError);
     }
 
     return { success: true };

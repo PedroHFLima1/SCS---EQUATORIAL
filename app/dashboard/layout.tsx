@@ -24,8 +24,8 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { name: 'TRAVESSIA', href: '/dashboard/travessia', icon: Route, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_TRAVESSIA'] },
-    { name: 'AMBIENTAL', href: '#', icon: Leaf, badge: 'EM DEV', section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_AMBIENTAL'] },
-    { name: 'ANUÊNCIA', href: '#', icon: FileText, badge: 'EM DEV', section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_ANUENCIA'] },
+    { name: 'AMBIENTAL', href: '/dashboard/ambiental', icon: Leaf, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_AMBIENTAL'] },
+    { name: 'ANUÊNCIA', href: '/dashboard/anuencia', icon: FileText, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_ANUENCIA'] },
     { name: 'PAINEL PARCEIRA', href: '/dashboard/parceira', icon: Briefcase, section: 'OPERAÇÃO', allowedRoles: ['PARCEIRA'] },
     { name: 'PAINEL ADMIN', href: '/dashboard/admin', icon: Settings, section: 'CONFIGURAÇÕES', allowedRoles: ['ADMIN'] },
   ];

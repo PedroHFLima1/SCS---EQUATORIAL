@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
-import { ShieldAlert, Users, Settings, Eye, Search, Filter, Edit2, Pencil, XCircle, X, AlertTriangle, Key, CheckCircle, Clock, Activity, AlertOctagon, RotateCcw, AlertCircle, Loader2 } from 'lucide-react';
+import { ShieldAlert, Users, Settings, Eye, Search, Filter, Edit2, Pencil, XCircle, X, AlertTriangle, Key, CheckCircle, Clock, Activity, AlertOctagon, RotateCcw, AlertCircle, Loader2, Trash2, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, deleteUser } from '@/app/actions/users';
+import Papa from 'papaparse';
 
 // Mock Data for Master Audit
 const masterProcesses = [
@@ -16,7 +17,7 @@ const masterProcesses = [
 
 export default function AdminPage() {
   const { isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState<'usuarios' | 'auditoria' | 'configuracoes'>('usuarios');
+  const [activeTab, setActiveTab] = useState<'usuarios' | 'auditoria' | 'configuracoes' | 'importacao'>('usuarios');
 
   // User Management State
   const [users, setUsers] = useState<any[]>([]);
@@ -89,6 +90,56 @@ export default function AdminPage() {
 
   // Settings State
   const [slaDays, setSlaDays] = useState(30);
+
+  // Import State
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus('Processando arquivo...');
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const data = results.data as any[];
+          
+          // Map CSV data to expected format
+          const mappedProcesses = data.map(row => ({
+            inscricao: row.INSCRICAO || row.inscricao || `IMP-${Math.floor(Math.random() * 10000)}`,
+            projeto: row.PROJETO || row.projeto || 'Projeto Importado',
+            concessionaria: row.CONCESSIONARIA || row.concessionaria || 'Não informada',
+            partner: row.PARCEIRA || row.partner || 'Não informada',
+            status: row.STATUS || row.status || 'NOVO',
+            protocol: row.PROTOCOLO || row.protocol || '',
+            sla: row.SLA || row.sla || '12d',
+            FILA_ATUAL: row.FILA_ATUAL || row.fila_atual || ''
+          }));
+
+          const res = await fetch('/api/processes/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ processes: mappedProcesses })
+          });
+
+          if (!res.ok) throw new Error('Falha na importação');
+          
+          const result = await res.json();
+          setImportStatus(`Sucesso! ${result.count} processos importados.`);
+          // Refresh audit data if needed
+        } catch (error: any) {
+          console.error('Import error:', error);
+          setImportStatus(`Erro na importação: ${error.message}`);
+        }
+      },
+      error: (error) => {
+        setImportStatus(`Erro ao ler CSV: ${error.message}`);
+      }
+    });
+  };
 
   // Audit Actions
   const filteredAudit = useMemo(() => {
@@ -406,6 +457,19 @@ export default function AdminPage() {
               Configurações de SLA
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab('importacao')}
+            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
+              activeTab === 'importacao'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center">
+              <Upload className="mr-2 h-4 w-4" />
+              Importação de Dados
+            </div>
+          </button>
         </nav>
       </div>
 
@@ -499,6 +563,14 @@ export default function AdminPage() {
                           ) : (
                             <><CheckCircle className="mr-2 h-3.5 w-3.5" /> Ativar</>
                           )}
+                        </button>
+                        <button
+                          onClick={() => confirmDeleteUser(user.id)}
+                          className="flex items-center justify-center rounded-md border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm"
+                          title="Excluir Usuário"
+                        >
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />
+                          Excluir
                         </button>
                       </div>
                     </td>
@@ -708,6 +780,44 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Tab Content: Importação de Dados */}
+      {activeTab === 'importacao' && (
+        <div className="max-w-2xl rounded-lg bg-white dark:bg-gray-900 shadow-sm border border-transparent dark:border-gray-800 p-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-6">IMPORTAÇÃO DE DADOS (CSV)</h2>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Selecione o arquivo CSV
+              </label>
+              <div className="flex items-center space-x-4">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-medium
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100
+                    dark:file:bg-blue-900/30 dark:file:text-blue-400"
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                O arquivo deve conter a coluna FILA_ATUAL para mapeamento automático dos módulos (Travessia, Ambiental, Anuência).
+              </p>
+            </div>
+            
+            {importStatus && (
+              <div className={`p-4 rounded-md ${importStatus.includes('Erro') ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                {importStatus}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Reset Password Modal */}
       {isResetModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -733,6 +843,37 @@ export default function AdminPage() {
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
                 Sim, Resetar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-lg bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+            <div className="p-6 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                <Trash2 className="h-6 w-6 text-red-600 dark:text-red-500" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Excluir Usuário</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Tem certeza que deseja excluir este usuário permanentemente? Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-3 border-t dark:border-gray-800 p-4 bg-gray-50 dark:bg-gray-800/50">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Sim, Excluir
               </button>
             </div>
           </div>

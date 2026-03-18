@@ -24,7 +24,7 @@ const slaColors: Record<string, string> = {
   '0d': 'bg-green-100 text-green-700',
 };
 
-export default function TravessiaPage() {
+export default function AmbientalPage() {
   const [processes, setProcesses] = useState<any[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isTreatmentOpen, setIsTreatmentOpen] = useState(false);
@@ -77,7 +77,7 @@ export default function TravessiaPage() {
 
   const fetchProcesses = async () => {
     try {
-      const res = await fetch('/api/processes?module=travessia');
+      const res = await fetch('/api/processes?module=ambiental');
       const data = await res.json();
       setProcesses(data);
     } catch (error) {
@@ -85,7 +85,7 @@ export default function TravessiaPage() {
     }
   };
 
-  const canAccess = role === 'ADMIN' || role === 'GESTOR_TRAVESSIA';
+  const canAccess = role === 'ADMIN' || role === 'GESTOR_AMBIENTAL';
 
   const filteredProcesses = useMemo(() => {
     let result = Array.isArray(processes) ? processes : [];
@@ -147,7 +147,7 @@ export default function TravessiaPage() {
         <ShieldAlert className="h-16 w-16 text-red-500 mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Acesso Negado</h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Você não tem permissão para acessar o Módulo Travessia.
+          Você não tem permissão para acessar o Módulo Ambiental.
         </p>
       </div>
     );
@@ -226,7 +226,7 @@ export default function TravessiaPage() {
     <div className="p-4 md:p-8">
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MÓDULO TRAVESSIA</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MÓDULO AMBIENTAL</h1>
           <p className="text-gray-500 dark:text-gray-400">Controle de Impedimentos e Monitoramento de SLA.</p>
         </div>
       </div>

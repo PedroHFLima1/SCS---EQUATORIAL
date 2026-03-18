@@ -29,6 +29,7 @@ model Process {
   status         String   @default("NOVO")
   protocol       String?
   sla            String
+  module         String   @default("travessia")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   movements      Movement[]

@@ -25,12 +25,69 @@ app.prepare().then(() => {
   // API Routes
   server.get('/api/processes', async (req, res) => {
     try {
+      const { module } = req.query;
+      const whereClause = module ? { module: String(module) } : {};
       const processes = await prisma.process.findMany({
+        where: whereClause,
         orderBy: { createdAt: 'desc' }
       });
       res.json(processes);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch processes' });
+    }
+  });
+
+  server.post('/api/processes/import', async (req, res) => {
+    const { processes } = req.body;
+    if (!Array.isArray(processes)) {
+      return res.status(400).json({ error: 'Invalid data format' });
+    }
+
+    try {
+      let importedCount = 0;
+      for (const p of processes) {
+        // Mapeamento DEPARA
+        let moduleName = p.module || 'travessia';
+        if (p.FILA_ATUAL) {
+          const fila = String(p.FILA_ATUAL).toLowerCase();
+          if (fila.includes('travessia')) {
+            moduleName = 'travessia';
+          } else if (fila.includes('ambiental')) {
+            moduleName = 'ambiental';
+          } else if (fila.includes('anuência') || fila.includes('anuencia')) {
+            moduleName = 'anuencia';
+          }
+        }
+
+        // Upsert to handle existing inscricao
+        await prisma.process.upsert({
+          where: { inscricao: p.inscricao },
+          update: {
+            projeto: p.projeto,
+            concessionaria: p.concessionaria,
+            partner: p.partner,
+            status: p.status || 'NOVO',
+            protocol: p.protocol || '',
+            sla: p.sla || '12d',
+            module: moduleName,
+          },
+          create: {
+            inscricao: p.inscricao,
+            projeto: p.projeto,
+            concessionaria: p.concessionaria,
+            partner: p.partner,
+            status: p.status || 'NOVO',
+            protocol: p.protocol || '',
+            sla: p.sla || '12d',
+            module: moduleName,
+          }
+        });
+        importedCount++;
+      }
+      res.json({ success: true, count: importedCount });
+    } catch (error) {
+      console.error('Import error:', error);
+      res.status(500).json({ error: 'Failed to import processes' });
     }
   });
 

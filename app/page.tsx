@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { EyeOff, Moon, Sun, Loader2 } from 'lucide-react';
+import { EyeOff, Moon, Sun, Loader2, Key } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/app/context/AuthContext';
@@ -17,6 +17,11 @@ export default function LoginPage() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { role, user, loading: authLoading } = useAuth();
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -54,6 +59,29 @@ export default function LoginPage() {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotMessage('');
+    setIsForgotLoading(true);
+
+    try {
+      const { requestPasswordReset } = await import('@/app/actions/users');
+      const result = await requestPasswordReset(forgotEmail);
+      
+      if (result.error) {
+        setForgotError(result.error);
+      } else {
+        setForgotMessage('Verifique seu e-mail para redefinir sua senha.');
+        setForgotEmail('');
+      }
+    } catch (err) {
+      setForgotError('Ocorreu um erro inesperado.');
+    } finally {
+      setIsForgotLoading(false);
     }
   };
 
@@ -165,9 +193,13 @@ export default function LoginPage() {
                 </button>
               </div>
               <div className="mt-2 text-right">
-                <a href="#" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                <button 
+                  type="button" 
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
                   Esqueceu a Senha?
-                </a>
+                </button>
               </div>
             </div>
 
@@ -188,6 +220,71 @@ export default function LoginPage() {
           </form>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {isForgotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4 mx-auto">
+                <Key className="h-6 w-6 text-blue-600 dark:text-blue-500" />
+              </div>
+              <h3 className="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">Redefinir Senha</h3>
+              <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
+                Informe seu e-mail corporativo para receber um link de redefinição de senha.
+              </p>
+
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                {forgotError && (
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-300">
+                    {forgotError}
+                  </div>
+                )}
+                {forgotMessage && (
+                  <div className="rounded-md bg-green-50 dark:bg-green-900/30 p-3 text-sm text-green-700 dark:text-green-300">
+                    {forgotMessage}
+                  </div>
+                )}
+                
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">E-mail</label>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="nome@empresa.com"
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
+                    required
+                    disabled={isForgotLoading}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotModalOpen(false);
+                      setForgotError('');
+                      setForgotMessage('');
+                      setForgotEmail('');
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isForgotLoading || !forgotEmail}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isForgotLoading ? 'Enviando...' : 'Enviar Link'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
