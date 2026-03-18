@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { ShieldAlert, Users, Settings, Eye, Search, Filter, Edit2, Pencil, XCircle, X, AlertTriangle, Key, CheckCircle, Clock, Activity, AlertOctagon, RotateCcw, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers } from '@/app/actions/users';
+import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, deleteUser } from '@/app/actions/users';
 
 // Mock Data for Master Audit
 const masterProcesses = [
@@ -23,11 +23,13 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [userToReset, setUserToReset] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [isToggleModalOpen, setIsToggleModalOpen] = useState(false);
   const [userToToggle, setUserToToggle] = useState<string | null>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
-  const [userFormData, setUserFormData] = useState({ name: '', email: '', profile: 'PARCEIRA', company: '' });
+  const [userFormData, setUserFormData] = useState({ name: '', email: '', profile: 'PARCEIRA', company: '', password: '' });
   const [userFormError, setUserFormError] = useState('');
   const [userFormLoading, setUserFormLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -148,21 +150,26 @@ export default function AdminPage() {
   // User Actions
   const openAddUserModal = () => {
     setEditingUser(null);
-    setUserFormData({ name: '', email: '', profile: 'PARCEIRA', company: '' });
+    setUserFormData({ name: '', email: '', profile: 'PARCEIRA', company: '', password: '' });
     setUserFormError('');
     setIsUserModalOpen(true);
   };
 
   const openEditUserModal = (user: any) => {
     setEditingUser(user);
-    setUserFormData({ name: user.name || '', email: user.email || '', profile: user.profile || 'PARCEIRA', company: user.company || '' });
+    setUserFormData({ name: user.name || '', email: user.email || '', profile: user.profile || 'PARCEIRA', company: user.company || '', password: '' });
     setUserFormError('');
     setIsUserModalOpen(true);
   };
 
   const handleSaveUser = async () => {
     if (!userFormData.name || (!editingUser && !userFormData.email) || !userFormData.profile || !userFormData.company) {
-      setUserFormError('Por favor, preencha todos os campos.');
+      setUserFormError('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    if (!editingUser && (!userFormData.password || userFormData.password.length < 6)) {
+      setUserFormError('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
@@ -175,6 +182,7 @@ export default function AdminPage() {
           name: userFormData.name,
           profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
           company: userFormData.company,
+          password: userFormData.password || undefined,
         });
 
         if (result.error) {
@@ -187,6 +195,7 @@ export default function AdminPage() {
           name: userFormData.name,
           profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
           company: userFormData.company,
+          password: userFormData.password,
         });
 
         if (result.error) {
@@ -230,6 +239,11 @@ export default function AdminPage() {
     setIsResetModalOpen(true);
   };
 
+  const confirmDeleteUser = (id: string) => {
+    setUserToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
   const handleResetPassword = async () => {
     if (userToReset) {
       const result = await resetUserPassword(userToReset);
@@ -240,6 +254,19 @@ export default function AdminPage() {
       }
       setIsResetModalOpen(false);
       setUserToReset(null);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (userToDelete) {
+      const result = await deleteUser(userToDelete);
+      if (result.error) {
+        alert(result.error);
+      } else {
+        await fetchUsers();
+      }
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
     }
   };
 
@@ -783,6 +810,18 @@ export default function AdminPage() {
                   placeholder="exemplo@empresa.com"
                   disabled={!!editingUser}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-800"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {editingUser ? 'Nova Senha (opcional)' : 'Senha'}
+                </label>
+                <input
+                  type="password"
+                  value={userFormData.password}
+                  onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
+                  placeholder={editingUser ? "Deixe em branco para não alterar" : "Mínimo de 6 caracteres"}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 />
               </div>
               <div>

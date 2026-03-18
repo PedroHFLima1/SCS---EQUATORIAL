@@ -45,18 +45,20 @@ export async function getUsers() {
       return { error: profilesError.message };
     }
 
-    const usersWithProfiles = users.map(user => {
-      const profile = profiles.find(p => p.id === user.id);
-      return {
-        id: user.id,
-        email: user.email,
-        name: profile?.name || '',
-        profile: (profile?.profile as UserProfileRole) || '',
-        company: profile?.company || '',
-        status: (profile?.status as UserStatus) || 'Inativo',
-        created_at: profile?.created_at || user.created_at
-      };
-    });
+    const usersWithProfiles = users
+      .filter(user => profiles.some(p => p.id === user.id))
+      .map(user => {
+        const profile = profiles.find(p => p.id === user.id)!;
+        return {
+          id: user.id,
+          email: user.email,
+          name: profile.name || '',
+          profile: (profile.profile as UserProfileRole) || '',
+          company: profile.company || '',
+          status: (profile.status as UserStatus) || 'Inativo',
+          created_at: profile.created_at || user.created_at
+        };
+      });
 
     return { success: true, users: usersWithProfiles };
   } catch (err: any) {
@@ -65,7 +67,7 @@ export async function getUsers() {
 }
 
 // A assinatura da função agora exige os tipos restritos
-export async function createUser(data: { email: string; name: string; profile: UserProfileRole; company: string }) {
+export async function createUser(data: { email: string; name: string; profile: UserProfileRole; company: string; password?: string }) {
   if (!supabaseServiceRoleKey) {
     return { error: 'Chave de serviço do Supabase não configurada (SUPABASE_SERVICE_ROLE_KEY).' };
   }
@@ -74,8 +76,13 @@ export async function createUser(data: { email: string; name: string; profile: U
     // 1. Create user in auth.users
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
-      password: 'Password123!', // Senha temporária. É boa prática forçar o reset no primeiro login.
+      password: data.password || 'Password123!', // Senha temporária. É boa prática forçar o reset no primeiro login.
       email_confirm: true,
+      user_metadata: {
+        name: data.name,
+        profile: data.profile,
+        company: data.company
+      }
     });
 
     if (authError) {
@@ -86,7 +93,7 @@ export async function createUser(data: { email: string; name: string; profile: U
       return { error: 'Erro ao criar usuário.' };
     }
 
-    // 2. Update profile
+    // 2. Update profile (apenas por garantia, mas o trigger já deve ter criado com os dados corretos)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -110,12 +117,21 @@ export async function createUser(data: { email: string; name: string; profile: U
 }
 
 // Atualização também tipada
-export async function updateUser(userId: string, data: { name: string; profile: UserProfileRole; company: string }) {
+export async function updateUser(userId: string, data: { name: string; profile: UserProfileRole; company: string; password?: string }) {
   if (!supabaseServiceRoleKey) {
     return { error: 'Chave de serviço do Supabase não configurada.' };
   }
 
   try {
+    if (data.password) {
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: data.password
+      });
+      if (authError) {
+        return { error: authError.message };
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -132,6 +148,25 @@ export async function updateUser(userId: string, data: { name: string; profile: 
     return { success: true };
   } catch (err: any) {
     return { error: err.message || 'Erro inesperado ao atualizar usuário.' };
+  }
+}
+
+export async function deleteUser(userId: string) {
+  if (!supabaseServiceRoleKey) {
+    return { error: 'Chave de serviço do Supabase não configurada.' };
+  }
+
+  try {
+    // 1. Delete from auth.users (this will cascade to profiles if ON DELETE CASCADE is set)
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    
+    if (authError) {
+      return { error: authError.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'Erro inesperado ao excluir usuário.' };
   }
 }
 
