@@ -23,12 +23,20 @@ export default function LoginPage() {
   const [forgotError, setForgotError] = useState('');
   const [isForgotLoading, setIsForgotLoading] = useState(false);
 
+  const [isManualLogin, setIsManualLogin] = useState(false);
+
   useEffect(() => {
     setMounted(true);
+    // Force logout when visiting the login page to ensure the user must log in again
+    const forceLogout = async () => {
+      await supabase.auth.signOut();
+    };
+    forceLogout();
   }, []);
 
   useEffect(() => {
-    if (user && !authLoading) {
+    // Only redirect if the user manually logged in during this session
+    if (isManualLogin && user && !authLoading) {
       if (role === 'ADMIN') {
         router.push('/dashboard/admin');
       } else if (role === 'PARCEIRA') {
@@ -37,12 +45,13 @@ export default function LoginPage() {
         router.push('/dashboard/travessia');
       }
     }
-  }, [user, role, authLoading, router]);
+  }, [user, role, authLoading, router, isManualLogin]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    setIsManualLogin(true);
 
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -52,10 +61,12 @@ export default function LoginPage() {
 
       if (signInError) {
         setError(signInError.message);
+        setIsManualLogin(false);
       }
       // The redirect will be handled by the useEffect watching `user` and `role`
     } catch (err) {
       setError('Ocorreu um erro inesperado. Tente novamente.');
+      setIsManualLogin(false);
       console.error(err);
     } finally {
       setIsLoading(false);
