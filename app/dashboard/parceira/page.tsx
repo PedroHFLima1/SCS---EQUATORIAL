@@ -9,10 +9,18 @@ import { useSocket } from '@/hooks/useSocket';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
-  'FALTA PRÉ': 'bg-orange-100 text-orange-700 border-orange-200',
-  'EMBARGO PÓS': 'bg-red-100 text-red-700 border-red-200',
+  'TRIAGEM': 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  'CORREÇÃO': 'bg-orange-100 text-orange-700 border-orange-200',
   'PROTOCOLADO': 'bg-purple-100 text-purple-700 border-purple-200',
   'APROVADO': 'bg-green-100 text-green-700 border-green-200',
+  'CANCELADO': 'bg-gray-100 text-gray-600 border-gray-300',
+};
+
+const getSlaColor = (sla: number | string) => {
+  const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
+  if (days <= 2) return 'bg-green-100 text-green-700';
+  if (days <= 5) return 'bg-yellow-100 text-yellow-700';
+  return 'bg-red-100 text-red-700';
 };
 
 export default function ParceiraPage() {
@@ -104,9 +112,7 @@ export default function ParceiraPage() {
       result = result.filter(p => p.projeto.toLowerCase().includes(searchProjeto.toLowerCase()));
     }
     if (tipoProjetoFilter !== 'Todos') {
-      // Assuming 'projeto' contains the type or we filter by it. If there's a specific field, we'd use it.
-      // For now, let's filter based on the 'projeto' field containing the type word.
-      result = result.filter(p => p.projeto.toLowerCase().includes(tipoProjetoFilter.toLowerCase()));
+      result = result.filter(p => p.module && p.module.toLowerCase() === tipoProjetoFilter.toLowerCase());
     }
     if (statusFilter !== 'Todas as Fases') {
       result = result.filter(p => p.status === statusFilter);
@@ -122,8 +128,12 @@ export default function ParceiraPage() {
     result = [...result].sort((a, b) => {
       if (sortBy === 'Inscrição (A-Z)') return a.inscricao.localeCompare(b.inscricao);
       if (sortBy === 'Inscrição (Z-A)') return b.inscricao.localeCompare(a.inscricao);
-      if (sortBy === 'SLA (Maior-Menor)') return b.sla - a.sla;
-      if (sortBy === 'SLA (Menor-Maior)') return a.sla - b.sla;
+      // SLA sorting
+      const slaA = typeof a.sla === 'string' ? parseInt(a.sla.replace('d', '')) || 0 : a.sla || 0;
+      const slaB = typeof b.sla === 'string' ? parseInt(b.sla.replace('d', '')) || 0 : b.sla || 0;
+
+      if (sortBy === 'SLA (Maior-Menor)') return slaB - slaA;
+      if (sortBy === 'SLA (Menor-Maior)') return slaA - slaB;
       return 0;
     });
 
@@ -239,10 +249,11 @@ export default function ParceiraPage() {
                 >
                   <option>Todas as Fases</option>
                   <option>NOVO</option>
-                  <option>FALTA PRÉ</option>
-                  <option>EMBARGO PÓS</option>
+                  <option>TRIAGEM</option>
+                  <option>CORREÇÃO</option>
                   <option>PROTOCOLADO</option>
                   <option>APROVADO</option>
+                  <option>CANCELADO</option>
                 </select>
               </div>
               <div>
@@ -292,7 +303,7 @@ export default function ParceiraPage() {
                   <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-100">{process.inscricao}</td>
                   <td className="px-6 py-4">
                     <div className="font-bold text-gray-700 dark:text-gray-300">{process.projeto}</div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 uppercase">{process.tipo}</div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 uppercase">{process.module}</div>
                   </td>
                   <td className="px-6 py-4 font-bold text-gray-700 dark:text-gray-300">{process.concessionaria}</td>
                   <td className="px-6 py-4">
@@ -301,8 +312,8 @@ export default function ParceiraPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 font-bold">
-                    <span className={process.sla > 5 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}>
-                      {process.sla} dias
+                    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ${getSlaColor(process.sla)}`}>
+                      {typeof process.sla === 'string' && process.sla.endsWith('d') ? process.sla : `${process.sla}d`}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">

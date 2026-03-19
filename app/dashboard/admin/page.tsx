@@ -6,18 +6,39 @@ import { ShieldAlert, Users, Settings, Eye, Search, Filter, Edit2, Pencil, XCirc
 import { supabase } from '@/lib/supabase';
 import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, deleteUser } from '@/app/actions/users';
 import Papa from 'papaparse';
+import { useSocket } from '@/hooks/useSocket';
 
-// Mock Data for Master Audit
-const masterProcesses = [
-  { id: '1', inscricao: '991203', projeto: 'TRAV_01', module: 'Travessia', partner: 'Applus', status: 'NOVO', protocol: 'Não gerado', sla: 2, concessionaria: 'Equatorial MA' },
-  { id: '2', inscricao: '881440', projeto: 'AMB_02', module: 'Ambiental', partner: 'Afaplan', status: 'CORREÇÃO', protocol: 'Não gerado', sla: 12, concessionaria: 'Equatorial PA' },
-  { id: '3', inscricao: '765209', projeto: 'ANU_03', module: 'Anuência', partner: 'Afaplan', status: 'FINALIZADO', protocol: 'A-123456', sla: 35, concessionaria: 'Equatorial PI' },
-  { id: '4', inscricao: '543190', projeto: 'TRAV_04', module: 'Travessia', partner: 'Applus', status: 'PROTOCOLADO', protocol: 'P-987654', sla: 1, concessionaria: 'Equatorial AL' },
-];
+const statusColors: Record<string, string> = {
+  'NOVO': 'bg-blue-100 text-blue-700',
+  'TRIAGEM': 'bg-purple-100 text-purple-700',
+  'CORREÇÃO': 'bg-orange-100 text-orange-700',
+  'PROTOCOLADO': 'bg-yellow-100 text-yellow-700',
+  'APROVADO': 'bg-green-100 text-green-700',
+  'CANCELADO': 'bg-red-100 text-red-700',
+};
+
+const getSlaColor = (sla: number | string) => {
+  const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
+  if (days <= 2) return 'bg-green-100 text-green-700';
+  if (days <= 5) return 'bg-yellow-100 text-yellow-700';
+  return 'bg-red-100 text-red-700';
+};
 
 export default function AdminPage() {
   const { isAdmin } = useAuth();
+  const { socket } = useSocket();
   const [activeTab, setActiveTab] = useState<'usuarios' | 'auditoria' | 'configuracoes' | 'importacao'>('usuarios');
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('process-updated', (updatedProcess: any) => {
+        setProcesses(prev => prev.map(p => p.id === updatedProcess.id ? updatedProcess : p));
+      });
+    }
+    return () => {
+      if (socket) socket.off('process-updated');
+    };
+  }, [socket]);
 
   // User Management State
   const [users, setUsers] = useState<any[]>([]);
@@ -73,7 +94,7 @@ export default function AdminPage() {
   };
 
   // Audit State
-  const [processes, setProcesses] = useState(masterProcesses);
+  const [processes, setProcesses] = useState<any[]>([]);
   const [auditSearch, setAuditSearch] = useState('');
   const [searchInscricao, setSearchInscricao] = useState('');
   const [searchProjeto, setSearchProjeto] = useState('');
@@ -95,6 +116,20 @@ export default function AdminPage() {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  useEffect(() => {
+    fetchProcesses();
+  }, []);
+
+  const fetchProcesses = async () => {
+    try {
+      const res = await fetch('/api/processes');
+      const data = await res.json();
+      setProcesses(data);
+    } catch (error) {
+      console.error('Failed to fetch processes:', error);
+    }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -193,8 +228,12 @@ export default function AdminPage() {
     result = [...result].sort((a, b) => {
       if (sortBy === 'Inscrição (A-Z)') return a.inscricao.localeCompare(b.inscricao);
       if (sortBy === 'Inscrição (Z-A)') return b.inscricao.localeCompare(a.inscricao);
-      if (sortBy === 'SLA (Maior-Menor)') return b.sla - a.sla;
-      if (sortBy === 'SLA (Menor-Maior)') return a.sla - b.sla;
+      // SLA sorting
+      const slaA = typeof a.sla === 'string' ? parseInt(a.sla.replace('d', '')) || 0 : a.sla || 0;
+      const slaB = typeof b.sla === 'string' ? parseInt(b.sla.replace('d', '')) || 0 : b.sla || 0;
+
+      if (sortBy === 'SLA (Maior-Menor)') return slaB - slaA;
+      if (sortBy === 'SLA (Menor-Maior)') return slaA - slaB;
       return 0;
     });
 
@@ -715,14 +754,14 @@ export default function AdminPage() {
                     <td className="px-6 py-4">{process.partner}</td>
                     <td className="px-6 py-4">{process.concessionaria}</td>
                     <td className="px-6 py-4">
-                      <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:text-gray-300">
+                      <span className={`rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${statusColors[process.status] || 'bg-gray-100 text-gray-700'}`}>
                         {process.status}
                       </span>
                     </td>
                     <td className="px-6 py-4">{process.protocol}</td>
                     <td className="px-6 py-4">
-                      <span className={`font-medium ${process.sla > slaDays ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-300'}`}>
-                        {process.sla} / {slaDays}
+                      <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ${getSlaColor(process.sla)}`}>
+                        {typeof process.sla === 'string' && process.sla.endsWith('d') ? process.sla : `${process.sla}d`}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">

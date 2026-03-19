@@ -1,30 +1,41 @@
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-let socket: Socket;
+// Initialize socket outside the hook so it's available immediately
+let socket: Socket | null = null;
 
 export const useSocket = () => {
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(socket?.connected || false);
 
   useEffect(() => {
-    if (!socket) {
+    // Initialize socket if it doesn't exist
+    if (typeof window !== 'undefined' && !socket) {
       socket = io();
     }
 
-    socket.on('connect', () => {
+    if (!socket) return;
+
+    const onConnect = () => {
       setConnected(true);
       console.log('Socket connected');
-    });
+    };
 
-    socket.on('disconnect', () => {
+    const onDisconnect = () => {
       setConnected(false);
       console.log('Socket disconnected');
-    });
+    };
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
 
     return () => {
-      // We keep the socket alive globally but can remove listeners if needed
+      if (socket) {
+        socket.off('connect', onConnect);
+        socket.off('disconnect', onDisconnect);
+      }
     };
   }, []);
 
+  // Return the global socket instance
   return { socket, connected };
 };

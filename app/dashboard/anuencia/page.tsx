@@ -16,12 +16,11 @@ const statusColors: Record<string, string> = {
   'CANCELADO': 'bg-gray-100 text-gray-600 border-gray-300',
 };
 
-const slaColors: Record<string, string> = {
-  '2d': 'bg-green-100 text-green-700',
-  '12d': 'bg-red-100 text-red-700',
-  '7d': 'bg-green-100 text-green-700',
-  '1d': 'bg-green-100 text-green-700',
-  '0d': 'bg-green-100 text-green-700',
+const getSlaColor = (sla: number | string) => {
+  const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
+  if (days <= 2) return 'bg-green-100 text-green-700 border-green-200';
+  if (days <= 5) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  return 'bg-red-100 text-red-700 border-red-200';
 };
 
 export default function AnuenciaPage() {
@@ -129,8 +128,8 @@ export default function AnuenciaPage() {
       if (sortBy === 'Inscrição (Z-A)') return b.inscricao.localeCompare(a.inscricao);
       
       // SLA sorting (parsing the 'd' from '2d', '12d', etc.)
-      const slaA = parseInt(a.sla.replace('d', ''));
-      const slaB = parseInt(b.sla.replace('d', ''));
+      const slaA = typeof a.sla === 'string' ? parseInt(a.sla.replace('d', '')) || 0 : a.sla || 0;
+      const slaB = typeof b.sla === 'string' ? parseInt(b.sla.replace('d', '')) || 0 : b.sla || 0;
       
       if (sortBy === 'SLA (Maior-Menor)') return slaB - slaA;
       if (sortBy === 'SLA (Menor-Maior)') return slaA - slaB;
@@ -234,11 +233,11 @@ export default function AnuenciaPage() {
       {/* Summary Cards */}
       <div className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: 'NOVOS', count: 1, color: 'border-blue-500' },
-          { label: 'TRIAGEM', count: 0, color: 'border-yellow-500' },
-          { label: 'CORREÇÃO', count: 1, color: 'border-orange-500' },
-          { label: 'PROTOCOLADOS', count: 0, color: 'border-purple-500' },
-          { label: 'APROVADOS', count: 0, color: 'border-green-500' },
+          { label: 'NOVOS', count: processes.filter(p => p.status === 'NOVO').length, color: 'border-blue-500' },
+          { label: 'TRIAGEM', count: processes.filter(p => p.status === 'TRIAGEM').length, color: 'border-yellow-500' },
+          { label: 'CORREÇÃO', count: processes.filter(p => p.status === 'CORREÇÃO').length, color: 'border-orange-500' },
+          { label: 'PROTOCOLADOS', count: processes.filter(p => p.status === 'PROTOCOLADO').length, color: 'border-purple-500' },
+          { label: 'APROVADOS', count: processes.filter(p => p.status === 'APROVADO').length, color: 'border-green-500' },
         ].map((card) => (
           <div key={card.label} className={`rounded-lg bg-white dark:bg-gray-900 p-4 shadow-sm border-b-4 ${card.color}`}>
             <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">{card.label}</div>
@@ -358,8 +357,8 @@ export default function AnuenciaPage() {
                   </td>
                   <td className="px-6 py-4">{process.protocol}</td>
                   <td className="px-6 py-4">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${slaColors[process.sla]}`}>
-                      {process.sla}
+                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${getSlaColor(process.sla)}`}>
+                      {typeof process.sla === 'string' && process.sla.endsWith('d') ? process.sla : `${process.sla}d`}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
