@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 const partners = ['Applus', 'Afaplan'];
 const concessionarias = ['Equatorial MA', 'Equatorial PA', 'Equatorial PI', 'Equatorial AL', 'Equatorial GO', 'Equatorial RS', 'Equatorial AP'];
