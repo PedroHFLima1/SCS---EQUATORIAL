@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Route, Leaf, FileText, Users, Moon, Sun, ShieldAlert, Settings, Menu, X, Briefcase, Mail, Bell, LogOut } from 'lucide-react';
+import { Route, Leaf, FileText, Users, Moon, Sun, ShieldAlert, Settings, Menu, X, Briefcase, Mail, Bell, LogOut, Loader2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from '@/app/context/AuthContext';
@@ -15,12 +15,18 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { role, setRole, isAdmin, email, setEmail, name, company } = useAuth();
+  const { role, setRole, isAdmin, email, setEmail, name, company, user, loading } = useAuth();
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/');
+    }
+  }, [user, loading, router]);
 
   const navItems = [
     { name: 'TRAVESSIA', href: '/dashboard/travessia', icon: Route, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_TRAVESSIA'] },
@@ -38,13 +44,28 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-950">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-950 transition-colors duration-200 overflow-hidden">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between bg-[#111827] dark:bg-gray-900 text-white p-4 absolute top-0 w-full z-30 border-b border-gray-800">
-        <div className="flex items-center">
-          <span className="text-xl font-bold text-yellow-500">SCS</span>
-          <span className="ml-2 text-sm font-light">Equatorial</span>
+        <div className="flex flex-col">
+          <span className="text-xs text-gray-400 truncate max-w-[150px]">{name || email}</span>
+          <div className="flex items-center">
+            <span className="text-xl font-bold text-yellow-500">SCS</span>
+            <span className="ml-2 text-sm font-light">Equatorial</span>
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <NotificationBell />
@@ -64,12 +85,15 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-40 w-64 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out bg-[#111827] dark:bg-gray-900 text-white flex flex-col border-r border-transparent dark:border-gray-800`}>
-        <div className="hidden md:flex h-16 items-center justify-between px-6">
+        <div className="hidden md:flex h-20 flex-col justify-center px-6 border-b border-gray-800">
+          <div className="flex items-center justify-between w-full mb-1">
+            <span className="text-xs text-gray-400 truncate pr-2">{name || email}</span>
+            <NotificationBell />
+          </div>
           <div className="flex items-center">
             <span className="text-2xl font-bold text-yellow-500">SCS</span>
             <span className="ml-2 text-lg font-light">Equatorial</span>
           </div>
-          <NotificationBell />
         </div>
 
         {/* Role Simulator Removed */}

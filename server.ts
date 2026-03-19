@@ -52,11 +52,24 @@ app.prepare().then(() => {
           const fila = String(p.FILA_ATUAL).toLowerCase();
           if (fila.includes('travessia')) {
             moduleName = 'travessia';
-          } else if (fila.includes('ambiental')) {
+          } else if (fila.includes('ambiental') || fila.includes('area ambiental')) {
             moduleName = 'ambiental';
           } else if (fila.includes('anuência') || fila.includes('anuencia')) {
             moduleName = 'anuencia';
+          } else if (fila.includes('projeto') || fila.includes('pendencia do cliente')) {
+            // Default to travessia for general project queues if not specified
+            moduleName = 'travessia';
           }
+        }
+
+        // Clean up status
+        let status = p.status || 'NOVO';
+        if (status === 'AREA AMBIENTAL' || status === 'PROCESSO SEMAD') {
+          status = 'TRIAGEM';
+        } else if (status === 'PENDENCIA FASE OBRA') {
+          status = 'CORREÇÃO';
+        } else if (status === 'TRAVESSIA PROTOCOLADA') {
+          status = 'PROTOCOLADO';
         }
 
         // Upsert to handle existing inscricao
@@ -66,7 +79,7 @@ app.prepare().then(() => {
             projeto: p.projeto,
             concessionaria: p.concessionaria,
             partner: p.partner,
-            status: p.status || 'NOVO',
+            status: status,
             protocol: p.protocol || '',
             sla: p.sla || '12d',
             module: moduleName,
@@ -76,7 +89,7 @@ app.prepare().then(() => {
             projeto: p.projeto,
             concessionaria: p.concessionaria,
             partner: p.partner,
-            status: p.status || 'NOVO',
+            status: status,
             protocol: p.protocol || '',
             sla: p.sla || '12d',
             module: moduleName,

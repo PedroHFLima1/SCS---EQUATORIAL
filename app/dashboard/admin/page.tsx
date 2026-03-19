@@ -93,29 +93,40 @@ export default function AdminPage() {
 
   // Import State
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) {
+      setSelectedFile(file);
+      setImportStatus(null);
+    }
+  };
 
+  const handleImport = () => {
+    if (!selectedFile) return;
+
+    setIsImporting(true);
     setImportStatus('Processando arquivo...');
 
-    Papa.parse(file, {
+    Papa.parse(selectedFile, {
       header: true,
       skipEmptyLines: true,
+      delimiter: ';', // Explicitly set delimiter to semicolon
       complete: async (results) => {
         try {
           const data = results.data as any[];
           
           // Map CSV data to expected format
           const mappedProcesses = data.map(row => ({
-            inscricao: row.INSCRICAO || row.inscricao || `IMP-${Math.floor(Math.random() * 10000)}`,
-            projeto: row.PROJETO || row.projeto || 'Projeto Importado',
+            inscricao: row.PRP_NUM_INSCRICAO || row.INSCRICAO || row.inscricao || `IMP-${Math.floor(Math.random() * 10000)}`,
+            projeto: row.PRO_NUM_PROJETO || row.PROJETO || row.projeto || 'Projeto Importado',
             concessionaria: row.CONCESSIONARIA || row.concessionaria || 'Não informada',
-            partner: row.PARCEIRA || row.partner || 'Não informada',
-            status: row.STATUS || row.status || 'NOVO',
+            partner: row.PARCEIRA_PROJETO || row.PARCEIRA || row.partner || 'Não informada',
+            status: row.SITUACAO_DA_FILA || row.STATUS || row.status || 'NOVO',
             protocol: row.PROTOCOLO || row.protocol || '',
-            sla: row.SLA || row.sla || '12d',
+            sla: row.DIAS_PARADO_ATUAL ? `${row.DIAS_PARADO_ATUAL}d` : (row.SLA || row.sla || '12d'),
             FILA_ATUAL: row.FILA_ATUAL || row.fila_atual || ''
           }));
 
@@ -129,14 +140,18 @@ export default function AdminPage() {
           
           const result = await res.json();
           setImportStatus(`Sucesso! ${result.count} processos importados.`);
+          setSelectedFile(null); // Reset file selection after success
           // Refresh audit data if needed
         } catch (error: any) {
           console.error('Import error:', error);
           setImportStatus(`Erro na importação: ${error.message}`);
+        } finally {
+          setIsImporting(false);
         }
       },
       error: (error) => {
         setImportStatus(`Erro ao ler CSV: ${error.message}`);
+        setIsImporting(false);
       }
     });
   };
@@ -794,7 +809,7 @@ export default function AdminPage() {
                 <input
                   type="file"
                   accept=".csv"
-                  onChange={handleFileUpload}
+                  onChange={handleFileChange}
                   className="block w-full text-sm text-gray-500 dark:text-gray-400
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-md file:border-0
@@ -803,6 +818,23 @@ export default function AdminPage() {
                     hover:file:bg-blue-100
                     dark:file:bg-blue-900/30 dark:file:text-blue-400"
                 />
+                <button
+                  onClick={handleImport}
+                  disabled={!selectedFile || isImporting}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isImporting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Importando...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Importar
+                    </>
+                  )}
+                </button>
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 O arquivo deve conter a coluna FILA_ATUAL para mapeamento automático dos módulos (Travessia, Ambiental, Anuência).
