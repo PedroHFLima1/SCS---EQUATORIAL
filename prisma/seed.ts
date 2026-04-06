@@ -27,11 +27,30 @@ async function main() {
     const moduleName = modules[i % 3];
     const prefix = moduleName === 'travessia' ? 'TRAV' : moduleName === 'ambiental' ? 'AMB' : 'ANU';
 
+    const idSolicitacao = generateRandomInscricao();
+    const projeto = `${prefix}_${String(i).padStart(3, '0')}`;
+    const parceira = getRandomItem(partners);
+
     processes.push({
-      inscricao: generateRandomInscricao(),
-      projeto: `${prefix}_${String(i).padStart(3, '0')}`,
+      idSolicitacao: idSolicitacao,
+      projeto: projeto,
+      municipio: 'São Luís',
+      regional: 'Centro',
+      superintendencia: 'Norte',
+      fluxoPassagem: Math.random() > 0.5 ? 'SIM' : 'NAO',
+      fluxoTravessia: Math.random() > 0.5 ? 'SIM' : 'NAO',
+      fluxoTravessiaLt: 'NAO',
+      fluxoAmbiental: Math.random() > 0.5 ? 'SIM' : 'NAO',
+      parceiraProjeto: parceira,
+      pendenciaAnuencia: Math.random() > 0.5,
+      pendenciaTravessia: Math.random() > 0.5,
+      pendenciaAmbiental: Math.random() > 0.5,
+      statusTriagem: 'PENDENTE',
+      
+      // Legacy fields
+      inscricao: idSolicitacao,
       concessionaria: getRandomItem(concessionarias),
-      partner: getRandomItem(partners),
+      partner: parceira,
       status: status,
       protocol: protocol,
       sla: sla,
@@ -41,20 +60,37 @@ async function main() {
 
   // Add some fixed ones to ensure specific edge cases are covered
   processes.push(
-    { inscricao: '991203', projeto: 'TRAV_FIX_01', concessionaria: 'Equatorial MA', partner: 'Applus', status: 'NOVO', protocol: 'Não gerado', sla: '2d', module: 'travessia' },
-    { inscricao: '881440', projeto: 'AMB_FIX_02', concessionaria: 'Equatorial PA', partner: 'Afaplan', status: 'CORREÇÃO', protocol: 'Não gerado', sla: '12d', module: 'ambiental' },
-    { inscricao: '765209', projeto: 'ANU_FIX_03', concessionaria: 'Equatorial PI', partner: 'Afaplan', status: 'TRIAGEM', protocol: 'Não gerado', sla: '7d', module: 'anuencia' },
-    { inscricao: '543190', projeto: 'TRAV_FIX_04', concessionaria: 'Equatorial AL', partner: 'Applus', status: 'PROTOCOLADO', protocol: 'A-123456', sla: '1d', module: 'travessia' },
-    { inscricao: '329857', projeto: 'AMB_FIX_05', concessionaria: 'Equatorial GO', partner: 'Applus', status: 'APROVADO', protocol: 'P-987654', sla: '0d', module: 'ambiental' }
+    { 
+      idSolicitacao: '991203', projeto: 'TRAV_FIX_01', parceiraProjeto: 'Applus', pendenciaAnuencia: true, pendenciaTravessia: false, pendenciaAmbiental: false, statusTriagem: 'PENDENTE',
+      inscricao: '991203', concessionaria: 'Equatorial MA', partner: 'Applus', status: 'NOVO', protocol: 'Não gerado', sla: '2d', module: 'travessia' 
+    },
+    { 
+      idSolicitacao: '881440', projeto: 'AMB_FIX_02', parceiraProjeto: 'Afaplan', pendenciaAnuencia: false, pendenciaTravessia: true, pendenciaAmbiental: true, statusTriagem: 'PENDENTE',
+      inscricao: '881440', concessionaria: 'Equatorial PA', partner: 'Afaplan', status: 'CORREÇÃO', protocol: 'Não gerado', sla: '12d', module: 'ambiental' 
+    },
+    { 
+      idSolicitacao: '765209', projeto: 'ANU_FIX_03', parceiraProjeto: 'Afaplan', pendenciaAnuencia: true, pendenciaTravessia: true, pendenciaAmbiental: false, statusTriagem: 'PENDENTE',
+      inscricao: '765209', concessionaria: 'Equatorial PI', partner: 'Afaplan', status: 'TRIAGEM', protocol: 'Não gerado', sla: '7d', module: 'anuencia' 
+    },
+    { 
+      idSolicitacao: '543190', projeto: 'TRAV_FIX_04', parceiraProjeto: 'Applus', pendenciaAnuencia: false, pendenciaTravessia: false, pendenciaAmbiental: true, statusTriagem: 'PENDENTE',
+      inscricao: '543190', concessionaria: 'Equatorial AL', partner: 'Applus', status: 'PROTOCOLADO', protocol: 'A-123456', sla: '1d', module: 'travessia' 
+    },
+    { 
+      idSolicitacao: '329857', projeto: 'AMB_FIX_05', parceiraProjeto: 'Applus', pendenciaAnuencia: true, pendenciaTravessia: true, pendenciaAmbiental: true, statusTriagem: 'PENDENTE',
+      inscricao: '329857', concessionaria: 'Equatorial GO', partner: 'Applus', status: 'APROVADO', protocol: 'P-987654', sla: '0d', module: 'ambiental' 
+    }
   );
+
+  console.log('Clearing existing data...');
+  await prisma.movement.deleteMany();
+  await prisma.process.deleteMany();
 
   console.log('Seeding database with test data...');
 
   for (const p of processes) {
-    await prisma.process.upsert({
-      where: { inscricao: p.inscricao },
-      update: {},
-      create: p,
+    await prisma.process.create({
+      data: p,
     });
   }
 
