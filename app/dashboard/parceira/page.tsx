@@ -6,6 +6,7 @@ import { Search, Filter, ClipboardList, Settings, FileText, MessageSquare, Wrenc
 import { useAuth } from '@/app/context/AuthContext';
 import { useNotifications } from '@/app/context/NotificationContext';
 import { useSocket } from '@/hooks/useSocket';
+import { DrillDownTable } from '@/components/DrillDownTable';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -177,6 +178,11 @@ export default function ParceiraPage() {
 
         if (!res.ok) throw new Error('Failed to update process');
 
+        const updatedProcess = await res.json();
+
+        // Update local state immediately
+        setProcesses(prev => prev.map(p => p.id === updatedProcess.id ? updatedProcess : p));
+
         setIsTreatmentOpen(false);
         setNewStatus('');
         setJustification('');
@@ -285,73 +291,12 @@ export default function ParceiraPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
-            <thead className="bg-white dark:bg-gray-900 text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
-              <tr>
-                <th className="px-6 py-4 font-semibold tracking-wider">INSCRIÇÃO</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">PROJETO</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">CONCESSIONÁRIA</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">STATUS ATUAL</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">SLA (DIAS PARADO)</th>
-                <th className="px-6 py-4 font-semibold tracking-wider text-center">AÇÃO</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
-              {filteredProcesses.map((process, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                  <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-100">{process.inscricao}</td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-gray-700 dark:text-gray-300">{process.projeto}</div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 uppercase">{process.module}</div>
-                  </td>
-                  <td className="px-6 py-4 font-bold text-gray-700 dark:text-gray-300">{process.concessionaria}</td>
-                  <td className="px-6 py-4">
-                    <span className={`rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${statusColors[process.status] || 'bg-gray-100 text-gray-700'}`}>
-                      {process.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-bold">
-                    <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ${getSlaColor(process.sla)}`}>
-                      {typeof process.sla === 'string' && process.sla.endsWith('d') ? process.sla : `${process.sla}d`}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center space-x-2">
-                      <button 
-                        onClick={() => openTreatment(process)} 
-                        className="rounded-md bg-gray-100 dark:bg-gray-800 px-4 py-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        Gerir
-                      </button>
-                      <button 
-                        onClick={() => openHistory(process)} 
-                        className="rounded-md bg-gray-100 dark:bg-gray-800 p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" 
-                        title="Ver Histórico"
-                      >
-                        <ClipboardList className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleSendEmail(process)} 
-                        className="rounded-md bg-gray-100 dark:bg-gray-800 p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" 
-                        title="Enviar Email"
-                      >
-                        <Mail className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredProcesses.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                    Nenhum processo encontrado com os filtros atuais.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DrillDownTable 
+          processes={filteredProcesses} 
+          role="PARCEIRA" 
+          openTreatment={openTreatment} 
+          openHistory={openHistory}
+        />
       </div>
 
       {/* History Modal */}

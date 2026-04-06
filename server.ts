@@ -158,6 +158,40 @@ app.prepare().then(() => {
     }
   });
 
+  server.post('/api/processes/update', async (req, res) => {
+    const { id, module, partner, status, protocol, sla, concessionaria, user } = req.body;
+    try {
+      const updatedProcess = await prisma.process.update({
+        where: { id },
+        data: { 
+          module,
+          partner,
+          status,
+          protocol,
+          sla: String(sla),
+          concessionaria
+        },
+      });
+
+      // Create movement record
+      await prisma.movement.create({
+        data: {
+          processId: id,
+          description: `Edição Administrativa: Status alterado para ${status}`,
+          user: user || 'Admin',
+        }
+      });
+
+      // Emit event to all clients
+      io.emit('process-updated', updatedProcess);
+
+      res.json(updatedProcess);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to update process' });
+    }
+  });
+
   // Handle all other requests with Next.js
   server.all(/.*/, (req, res) => {
     return handle(req, res);

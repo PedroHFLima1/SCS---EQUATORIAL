@@ -6,6 +6,7 @@ import { Search, Filter, ClipboardList, XCircle, Mail, Settings, FileText, Messa
 import { useAuth } from '@/app/context/AuthContext';
 import { useNotifications } from '@/app/context/NotificationContext';
 import { useSocket } from '@/hooks/useSocket';
+import { DrillDownTable } from '@/components/DrillDownTable';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -176,6 +177,11 @@ export default function TravessiaPage() {
         });
 
         if (!res.ok) throw new Error('Failed to update process');
+        
+        const updatedProcess = await res.json();
+
+        // Update local state immediately
+        setProcesses(prev => prev.map(p => p.id === updatedProcess.id ? updatedProcess : p));
 
         setIsTreatmentOpen(false);
         setNewStatus('');
@@ -212,6 +218,9 @@ export default function TravessiaPage() {
         });
 
         if (!res.ok) throw new Error('Failed to cancel process');
+        
+        const updatedProcess = await res.json();
+        setProcesses(prev => prev.map(p => p.id === updatedProcess.id ? updatedProcess : p));
 
         setIsDeleteModalOpen(false);
         setProcessToDelete(null);
@@ -329,68 +338,14 @@ export default function TravessiaPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
-            <thead className="bg-gray-50 dark:bg-gray-950/50 text-xs uppercase text-gray-500 dark:text-gray-400">
-              <tr>
-                <th className="px-6 py-3 font-medium">INSCRIÇÃO</th>
-                <th className="px-6 py-3 font-medium">PROJETO</th>
-                <th className="px-6 py-3 font-medium">CONCESSIONÁRIA</th>
-                <th className="px-6 py-3 font-medium">PARCEIRA</th>
-                <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
-                <th className="px-6 py-3 font-medium">PROTOCOLO</th>
-                <th className="px-6 py-3 font-medium">SLA</th>
-                <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredProcesses.map((process, idx) => (
-                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-200">{process.inscricao}</td>
-                  <td className="px-6 py-4">{process.projeto}</td>
-                  <td className="px-6 py-4">{process.concessionaria}</td>
-                  <td className="px-6 py-4">{process.partner}</td>
-                  <td className="px-6 py-4">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[process.status]}`}>
-                      {process.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">{process.protocol}</td>
-                  <td className="px-6 py-4">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${getSlaColor(process.sla)}`}>
-                      {typeof process.sla === 'string' && process.sla.endsWith('d') ? process.sla : `${process.sla}d`}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center space-x-3">
-                      <button onClick={() => openTreatment(process)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400" title="Tratar Processo">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => openHistory(process)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Ver Histórico">
-                        <ClipboardList className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleSendEmail(process)} className="text-gray-400 hover:text-orange-600 dark:hover:text-orange-400" title="Enviar Email">
-                        <Mail className="h-4 w-4" />
-                      </button>
-                      {role === 'ADMIN' && (
-                        <button onClick={() => confirmCancel(process)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Cancelar Processo">
-                          <XCircle className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredProcesses.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                    Nenhum processo encontrado com os filtros atuais.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DrillDownTable 
+          processes={filteredProcesses} 
+          role={role} 
+          openTreatment={openTreatment} 
+          openHistory={openHistory} 
+          handleSendEmail={handleSendEmail} 
+          confirmCancel={confirmCancel} 
+        />
       </div>
 
       {/* History Modal */}

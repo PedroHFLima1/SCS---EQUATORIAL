@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Route, Leaf, FileText, Users, Moon, Sun, ShieldAlert, Settings, Menu, X, Briefcase, Mail, Bell, LogOut, Loader2 } from 'lucide-react';
+import { Route, Leaf, FileText, Users, Moon, Sun, ShieldAlert, Settings, Menu, X, Briefcase, Mail, Bell, LogOut, Loader2, Activity } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from '@/app/context/AuthContext';
@@ -33,6 +33,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     { name: 'AMBIENTAL', href: '/dashboard/ambiental', icon: Leaf, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_AMBIENTAL'] },
     { name: 'ANUÊNCIA', href: '/dashboard/anuencia', icon: FileText, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_ANUENCIA'] },
     { name: 'PAINEL PARCEIRA', href: '/dashboard/parceira', icon: Briefcase, section: 'OPERAÇÃO', allowedRoles: ['PARCEIRA'] },
+    { name: 'OPERACIONAL', href: '/dashboard/operacional', icon: Activity, section: 'OPERAÇÃO', allowedRoles: ['ADMIN', 'GESTOR_TRAVESSIA', 'GESTOR_AMBIENTAL', 'GESTOR_ANUENCIA', 'PARCEIRA'] },
     { name: 'PAINEL ADMIN', href: '/dashboard/admin', icon: Settings, section: 'CONFIGURAÇÕES', allowedRoles: ['ADMIN'] },
   ];
 

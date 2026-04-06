@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, deleteUser } from '@/app/actions/users';
 import Papa from 'papaparse';
 import { useSocket } from '@/hooks/useSocket';
+import { DrillDownTable } from '@/components/DrillDownTable';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700',
@@ -388,17 +389,37 @@ export default function AdminPage() {
     setIsEditProtocolModalOpen(true);
   };
 
-  const handleSaveProtocol = () => {
+  const handleSaveProtocol = async () => {
     if (processToEdit) {
-      setProcesses(processes.map(p => 
-        p.id === processToEdit.id 
-          ? { ...p, ...editFormData } 
-          : p
-      ));
+      try {
+        const res = await fetch('/api/processes/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: processToEdit.id,
+            ...editFormData,
+            user: email || 'Admin'
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to update process');
+        
+        const updatedProcess = await res.json();
+
+        setProcesses(processes.map(p => 
+          p.id === processToEdit.id 
+            ? { ...p, ...updatedProcess } 
+            : p
+        ));
+        
+        alert('Projeto alterado com sucesso!');
+      } catch (error) {
+        console.error('Error updating process:', error);
+        alert('Erro ao alterar projeto.');
+      }
     }
     setIsEditProtocolModalOpen(false);
     setProcessToEdit(null);
-    alert('Projeto alterado com sucesso!');
   };
 
   const confirmCancelProject = (id: string) => {
@@ -406,13 +427,32 @@ export default function AdminPage() {
     setIsDeleteProjectModalOpen(true);
   };
 
-  const handleCancelProject = () => {
+  const handleCancelProject = async () => {
     if (projectToDelete) {
-      setProcesses(processes.map(p => 
-        p.id === projectToDelete 
-          ? { ...p, status: 'CANCELADO' } 
-          : p
-      ));
+      try {
+        const res = await fetch('/api/processes/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: projectToDelete,
+            status: 'CANCELADO',
+            user: email || 'Admin'
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to cancel process');
+        
+        const updatedProcess = await res.json();
+        
+        setProcesses(processes.map(p => 
+          p.id === projectToDelete 
+            ? { ...p, status: 'CANCELADO' } 
+            : p
+        ));
+      } catch (error) {
+        console.error('Error cancelling process:', error);
+        alert('Erro ao cancelar projeto.');
+      }
       setIsDeleteProjectModalOpen(false);
       setProjectToDelete(null);
     }
@@ -730,72 +770,12 @@ export default function AdminPage() {
             </div>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
-              <thead className="bg-gray-50 dark:bg-gray-950/50 text-xs uppercase text-gray-500 dark:text-gray-400">
-                <tr>
-                  <th className="px-6 py-3 font-medium">INSCRIÇÃO</th>
-                  <th className="px-6 py-3 font-medium">PROJETO</th>
-                  <th className="px-6 py-3 font-medium">MÓDULO</th>
-                  <th className="px-6 py-3 font-medium">PARCEIRA</th>
-                  <th className="px-6 py-3 font-medium">CONCESSIONÁRIA</th>
-                  <th className="px-6 py-3 font-medium">STATUS</th>
-                  <th className="px-6 py-3 font-medium">PROTOCOLO</th>
-                  <th className="px-6 py-3 font-medium">SLA (DIAS)</th>
-                  <th className="px-6 py-3 font-medium text-right">AÇÕES</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {filteredAudit.map((process, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-200">{process.inscricao}</td>
-                    <td className="px-6 py-4">{process.projeto}</td>
-                    <td className="px-6 py-4">{process.module}</td>
-                    <td className="px-6 py-4">{process.partner}</td>
-                    <td className="px-6 py-4">{process.concessionaria}</td>
-                    <td className="px-6 py-4">
-                      <span className={`rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${statusColors[process.status] || 'bg-gray-100 text-gray-700'}`}>
-                        {process.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{process.protocol}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ${getSlaColor(process.sla)}`}>
-                        {typeof process.sla === 'string' && process.sla.endsWith('d') ? process.sla : `${process.sla}d`}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => openEditProtocol(process)}
-                          className="flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
-                          title="Edição Administrativa"
-                        >
-                          <Pencil className="mr-2 h-3.5 w-3.5 text-gray-500" />
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => confirmCancelProject(process.id)}
-                          className="flex items-center justify-center rounded-md border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm"
-                          title="Cancelar Projeto"
-                        >
-                          <XCircle className="mr-2 h-3.5 w-3.5" />
-                          Cancelar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filteredAudit.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                      Nenhum projeto encontrado.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DrillDownTable 
+            processes={filteredAudit} 
+            role="ADMIN" 
+            openTreatment={openEditProtocol} 
+            confirmCancel={(process) => confirmCancelProject(process.id)} 
+          />
         </div>
       )}
 
