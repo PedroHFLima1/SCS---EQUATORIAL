@@ -13,7 +13,7 @@ export async function POST(request: Request) {
         partner,
         status,
         protocol,
-        sla: typeof sla === 'number' ? sla : parseInt(sla, 10),
+        sla: sla !== undefined && sla !== null ? String(sla) : null,
         concessionaria
       },
     });

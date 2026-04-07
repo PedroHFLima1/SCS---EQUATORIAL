@@ -24,7 +24,8 @@ export default async function OperacionalPage() {
 
     return {
       ...p,
-      aprovadoPor: approvalMovement ? approvalMovement.user : null
+      aprovadoPor: approvalMovement ? approvalMovement.user : null,
+      dataAprovacao: approvalMovement ? approvalMovement.date : null
     };
   });
 

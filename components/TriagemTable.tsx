@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { aprovarTriagemDireto, solicitarAprovacaoTriagem, aprovarAlteracaoTriagem } from '@/app/actions/triagem';
+import { aprovarTriagem } from '@/app/actions/triagem';
 import { useAuth } from '@/app/context/AuthContext';
 import {
   Dialog,
@@ -23,7 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 
 interface TriagemItem {
   id: string;
@@ -41,6 +40,7 @@ interface TriagemItem {
   statusTriagem: string;
   dataImportacao: Date;
   aprovadoPor?: string | null;
+  dataAprovacao?: Date | null;
 }
 
 interface TriagemTableProps {
@@ -60,7 +60,6 @@ export function TriagemTable({ items }: TriagemTableProps) {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TriagemItem | null>(null);
-  const [justification, setJustification] = useState('');
 
   // Filter items based on role and active tab
   const filteredItems = useMemo(() => {
@@ -86,20 +85,13 @@ export function TriagemTable({ items }: TriagemTableProps) {
     setLocalItems(prev => prev.map(i => i.id === item.id ? { ...i, [field]: newValue } : i));
   };
 
-  const handleAprovarDireto = async (item: TriagemItem) => {
-    await aprovarTriagemDireto(item.id, email || 'Desconhecido');
-    // Optimistic update
-    setLocalItems(prev => prev.map(i => i.id === item.id ? { ...i, statusTriagem: 'FINALIZADO' } : i));
-  };
-
-  const openSolicitarAprovacaoModal = (item: TriagemItem) => {
+  const openConfirmModal = (item: TriagemItem) => {
     setSelectedItem(item);
-    setJustification('');
     setIsModalOpen(true);
   };
 
-  const handleSolicitarAprovacao = async () => {
-    if (!selectedItem || !justification.trim()) return;
+  const handleAprovar = async () => {
+    if (!selectedItem) return;
 
     const changes = {
       pendenciaAnuencia: selectedItem.pendenciaAnuencia,
@@ -107,23 +99,13 @@ export function TriagemTable({ items }: TriagemTableProps) {
       pendenciaAmbiental: selectedItem.pendenciaAmbiental,
     };
 
-    await solicitarAprovacaoTriagem(selectedItem.id, changes, justification, email || 'Desconhecido');
-
-    // Update local state to show it's in approval
-    setLocalItems(prev => prev.map(i => 
-      i.id === selectedItem.id ? { ...i, statusTriagem: 'EM_APROVACAO' } : i
-    ));
-
+    await aprovarTriagem(selectedItem.id, changes, email || 'Desconhecido');
+    
+    // Optimistic update
+    setLocalItems(prev => prev.map(i => i.id === selectedItem.id ? { ...i, statusTriagem: 'FINALIZADO', aprovadoPor: email || 'Desconhecido', dataAprovacao: new Date() } : i));
+    
     setIsModalOpen(false);
-    setJustification('');
     setSelectedItem(null);
-  };
-
-  const handleAprovarAlteracao = async (item: TriagemItem) => {
-    await aprovarAlteracaoTriagem(item.id, email || 'Desconhecido');
-    setLocalItems(prev => prev.map(i => 
-      i.id === item.id ? { ...i, statusTriagem: 'FINALIZADO' } : i
-    ));
   };
 
   return (
@@ -165,26 +147,21 @@ export function TriagemTable({ items }: TriagemTableProps) {
               <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">TRAVESSIA</TableHead>
               <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">AMBIENTAL</TableHead>
               <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">DATA DE IMPORTAÇÃO</TableHead>
+              {activeTab === 'aprovados' && (
+                <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">DATA DE APROVAÇÃO</TableHead>
+              )}
               <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AÇÕES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredItems.map((item, index) => {
-              const originalItem = items.find(i => i.id === item.id);
-              const hasChanges = originalItem && (
-                item.pendenciaAnuencia !== originalItem.pendenciaAnuencia ||
-                item.pendenciaTravessia !== originalItem.pendenciaTravessia ||
-                item.pendenciaAmbiental !== originalItem.pendenciaAmbiental
-              );
-
-              const isEmAprovacao = item.statusTriagem === 'EM_APROVACAO';
               const isFinalizado = item.statusTriagem === 'FINALIZADO';
               
               // Lógica de agrupamento visual por ID_SOLICITACAO
               const isSameAsPrevious = index > 0 && filteredItems[index - 1].idSolicitacao === item.idSolicitacao;
 
               return (
-                <TableRow key={item.id} className={`border-b border-gray-100 dark:border-gray-800/50 ${isEmAprovacao ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''}`}>
+                <TableRow key={item.id} className={`border-b border-gray-100 dark:border-gray-800/50`}>
                   <TableCell className="text-sm text-gray-600 dark:text-gray-400">
                     {!isSameAsPrevious ? item.idSolicitacao : <span className="text-transparent">{item.idSolicitacao}</span>}
                   </TableCell>
@@ -199,7 +176,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaAnuencia}
-                        disabled={isEmAprovacao || isFinalizado || role !== 'PARCEIRA'}
+                        disabled={isFinalizado || role !== 'PARCEIRA'}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaAnuencia', item.pendenciaAnuencia)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -211,7 +188,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaTravessia}
-                        disabled={isEmAprovacao || isFinalizado || role !== 'PARCEIRA'}
+                        disabled={isFinalizado || role !== 'PARCEIRA'}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaTravessia', item.pendenciaTravessia)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -223,7 +200,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaAmbiental}
-                        disabled={isEmAprovacao || isFinalizado || role !== 'PARCEIRA'}
+                        disabled={isFinalizado || role !== 'PARCEIRA'}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaAmbiental', item.pendenciaAmbiental)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -233,6 +210,12 @@ export function TriagemTable({ items }: TriagemTableProps) {
                   <TableCell className="text-sm text-gray-600 dark:text-gray-400">
                     {format(new Date(item.dataImportacao), 'dd/MM/yyyy')}
                   </TableCell>
+
+                  {activeTab === 'aprovados' && (
+                    <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                      {item.dataAprovacao ? format(new Date(item.dataAprovacao), 'dd/MM/yyyy HH:mm') : '-'}
+                    </TableCell>
+                  )}
 
                   <TableCell>
                     {isFinalizado ? (
@@ -246,27 +229,11 @@ export function TriagemTable({ items }: TriagemTableProps) {
                           </span>
                         )}
                       </div>
-                    ) : isEmAprovacao ? (
-                      (role === 'GESTOR' || role === 'ADMIN') ? (
-                        <Button size="sm" onClick={() => handleAprovarAlteracao(item)} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs px-3">
-                          Aprovar Alteração
-                        </Button>
-                      ) : (
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800 font-normal">
-                          Aguardando Aprovação
-                        </Badge>
-                      )
                     ) : (
                       role === 'PARCEIRA' ? (
-                        hasChanges ? (
-                          <Button size="sm" variant="secondary" onClick={() => openSolicitarAprovacaoModal(item)} className="h-8 text-xs px-3">
-                            Solicitar Aprovação
-                          </Button>
-                        ) : (
-                          <Button size="sm" onClick={() => handleAprovarDireto(item)} className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs px-3">
-                            Aprovar
-                          </Button>
-                        )
+                        <Button size="sm" onClick={() => openConfirmModal(item)} className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs px-3">
+                          Aprovar
+                        </Button>
                       ) : (
                         <span className="text-xs text-gray-400 italic">Aguardando Parceira</span>
                       )
@@ -277,7 +244,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
             })}
             {filteredItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={role === 'GESTOR' || role === 'ADMIN' ? 8 : 7} className="text-center py-8 text-muted-foreground text-sm">
+                <TableCell colSpan={role === 'GESTOR' || role === 'ADMIN' ? (activeTab === 'aprovados' ? 9 : 8) : (activeTab === 'aprovados' ? 8 : 7)} className="text-center py-8 text-muted-foreground text-sm">
                   Nenhum projeto encontrado.
                 </TableCell>
               </TableRow>
@@ -289,27 +256,17 @@ export function TriagemTable({ items }: TriagemTableProps) {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border dark:border-slate-800 shadow-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Solicitar Aprovação</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Confirmar Aprovação</DialogTitle>
             <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
-              Você alterou as pendências deste projeto. Por favor, justifique a alteração para que o Gestor possa avaliar.
+              Tem certeza que deseja aprovar o projeto {selectedItem?.projeto}?
+              As pendências marcadas direcionarão o projeto para os respectivos módulos.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-4">
-            <label className="text-sm font-medium mb-2 block text-slate-700 dark:text-slate-300">Justificativa:</label>
-            <Textarea 
-              value={justification}
-              onChange={(e) => setJustification(e.target.value)}
-              placeholder="Explique o motivo das alterações..."
-              rows={4}
-              className="resize-none bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
-            />
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setIsModalOpen(false)} className="text-slate-700 dark:text-slate-300">Cancelar</Button>
-            <Button onClick={handleSolicitarAprovacao} disabled={!justification.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
-              Enviar Solicitação
+            <Button onClick={handleAprovar} className="bg-green-600 hover:bg-green-700 text-white">
+              Sim, Aprovar
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -26,10 +26,15 @@ const getSlaColor = (sla: number | string) => {
 
 export default function TravessiaPage() {
   const [processes, setProcesses] = useState<any[]>([]);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isTreatmentOpen, setIsTreatmentOpen] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [justification, setJustification] = useState('');
+  const [protocol, setProtocol] = useState('');
+  const [valor, setValor] = useState('');
+  const [dataVencimento, setDataVencimento] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [rodovia, setRodovia] = useState('');
+  const [km, setKm] = useState('');
   const [selectedProcess, setSelectedProcess] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [processToDelete, setProcessToDelete] = useState<any>(null);
@@ -85,7 +90,7 @@ export default function TravessiaPage() {
     }
   };
 
-  const canAccess = role === 'ADMIN' || role === 'GESTOR_TRAVESSIA';
+  const canAccess = role === 'ADMIN' || role === 'GESTOR_TRAVESSIA' || role === 'PARCEIRA';
 
   const filteredProcesses = useMemo(() => {
     let result = Array.isArray(processes) ? processes : [];
@@ -153,11 +158,6 @@ export default function TravessiaPage() {
     );
   }
 
-  const openHistory = (process: any) => {
-    setSelectedProcess(process);
-    setIsHistoryOpen(true);
-  };
-
   const openTreatment = (process: any) => {
     setSelectedProcess(process);
     setIsTreatmentOpen(true);
@@ -170,22 +170,41 @@ export default function TravessiaPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            id: selectedProcess.id,
+            inscricao: selectedProcess.inscricao || selectedProcess.idSolicitacao,
+            module: 'travessia',
             status: newStatus,
-            user: email || role
+            justification: justification,
+            user: email || role,
+            ...(newStatus === 'PROTOCOLADO' && {
+              protocol,
+              valor,
+              dataVencimento,
+              tipo,
+              rodovia,
+              km
+            })
           }),
         });
 
         if (!res.ok) throw new Error('Failed to update process');
         
-        const updatedProcess = await res.json();
+        const updatedProcesses = await res.json();
 
         // Update local state immediately
-        setProcesses(prev => prev.map(p => p.id === updatedProcess.id ? updatedProcess : p));
+        setProcesses(prev => prev.map(p => {
+          const updated = updatedProcesses.find((up: any) => up.id === p.id);
+          return updated ? updated : p;
+        }));
 
         setIsTreatmentOpen(false);
         setNewStatus('');
         setJustification('');
+        setProtocol('');
+        setValor('');
+        setDataVencimento('');
+        setTipo('');
+        setRodovia('');
+        setKm('');
       } catch (error) {
         console.error('Error updating process:', error);
       }
@@ -341,91 +360,12 @@ export default function TravessiaPage() {
         <DrillDownTable 
           processes={filteredProcesses} 
           role={role} 
-          openTreatment={openTreatment} 
-          openHistory={openHistory} 
-          handleSendEmail={handleSendEmail} 
-          confirmCancel={confirmCancel} 
+          moduleName="travessia"
+          openTreatment={role === 'PARCEIRA' ? undefined : openTreatment} 
+          handleSendEmail={role === 'PARCEIRA' ? undefined : handleSendEmail} 
+          confirmCancel={role === 'PARCEIRA' ? undefined : confirmCancel} 
         />
       </div>
-
-      {/* History Modal */}
-      {isHistoryOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-lg bg-white dark:bg-gray-900 shadow-xl border dark:border-gray-800 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b dark:border-gray-800 p-4 shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Histórico do Projeto: {selectedProcess?.inscricao}</h3>
-              <button onClick={() => setIsHistoryOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto">
-              <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-8">
-                {/* Timeline Item 1 */}
-                <div className="relative pl-6">
-                  <div className="absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 ring-4 ring-white dark:ring-gray-900">
-                    <Settings className="h-2.5 w-2.5 text-white" />
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">15/03/2026 14:35</div>
-                  <div className="flex items-center mb-2">
-                    <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300 mr-2">JS</div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-200">João Santos | Status alterado para</span>
-                    <span className="ml-2 rounded bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:text-yellow-500">Triagem</span>
-                  </div>
-                  <div className="rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-sm text-gray-700 dark:text-gray-300">
-                    Justificativa: Documentos recebidos, iniciando análise preliminar.
-                  </div>
-                </div>
-
-                {/* Timeline Item 2 */}
-                <div className="relative pl-6">
-                  <div className="absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-500 ring-4 ring-white dark:ring-gray-900">
-                    <FileText className="h-2.5 w-2.5 text-white" />
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">14/03/2026 16:45</div>
-                  <div className="flex items-center mb-2">
-                    <div className="h-6 w-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-xs font-medium text-purple-600 dark:text-purple-400 mr-2"><FileText className="h-3 w-3"/></div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-200">Sistema (Automático) | Processo criado via importação</span>
-                  </div>
-                </div>
-
-                {/* Timeline Item 3 */}
-                <div className="relative pl-6">
-                  <div className="absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gray-400 ring-4 ring-white dark:ring-gray-900">
-                    <MessageSquare className="h-2.5 w-2.5 text-white" />
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">14/03/2026 09:15</div>
-                  <div className="flex items-center mb-2">
-                    <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mr-2 relative">
-                      <Image src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Ana" fill className="object-cover" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-200">Ana Costa | Comentário adicionado</span>
-                  </div>
-                  <div className="rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-sm text-gray-700 dark:text-gray-300">
-                    Solicitado parecer técnico da engenharia sobre o croqui anexo.
-                  </div>
-                </div>
-
-                {/* Timeline Item 4 */}
-                <div className="relative pl-6">
-                  <div className="absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-4 ring-white dark:ring-gray-900">
-                    <Wrench className="h-2.5 w-2.5 text-white" />
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">13/03/2026 11:00</div>
-                  <div className="flex items-center mb-2">
-                    <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mr-2 relative">
-                      <Image src="https://i.pravatar.cc/150?u=a042581f4e29026704e" alt="Carlos" fill className="object-cover" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-200">Carlos Lima | Status alterado para &apos;Correção Pré&apos;</span>
-                  </div>
-                  <div className="rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-sm text-gray-700 dark:text-gray-300">
-                    Devolvido para ajuste de coordenadas.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Treatment Modal */}
       {isTreatmentOpen && (
@@ -469,6 +409,68 @@ export default function TravessiaPage() {
                     className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   ></textarea>
                 </div>
+
+                {newStatus === 'PROTOCOLADO' && (
+                  <div className="grid grid-cols-2 gap-4 border-t dark:border-gray-800 pt-4 mt-4">
+                    <div className="col-span-2">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Dados do Protocolo</h4>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Nº Protocolo <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={protocol}
+                        onChange={(e) => setProtocol(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Valor</label>
+                      <input
+                        type="text"
+                        value={valor}
+                        onChange={(e) => setValor(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data de Vencimento</label>
+                      <input
+                        type="date"
+                        value={dataVencimento}
+                        onChange={(e) => setDataVencimento(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+                      <input
+                        type="text"
+                        value={tipo}
+                        onChange={(e) => setTipo(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Rodovia</label>
+                      <input
+                        type="text"
+                        value={rodovia}
+                        onChange={(e) => setRodovia(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">KM</label>
+                      <input
+                        type="text"
+                        value={km}
+                        onChange={(e) => setKm(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -481,7 +483,7 @@ export default function TravessiaPage() {
               </button>
               <button
                 onClick={handleSaveMovement}
-                disabled={!newStatus || !justification}
+                disabled={!newStatus || !justification || (newStatus === 'PROTOCOLADO' && !protocol)}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Salvar Movimentação

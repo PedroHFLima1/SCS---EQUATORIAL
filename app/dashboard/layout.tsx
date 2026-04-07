@@ -29,10 +29,9 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   }, [user, loading, router]);
 
   const navItems: { name: string; href: string; icon: any; section: string; allowedRoles: string[]; badge?: string }[] = [
-    { name: 'TRAVESSIA', href: '/dashboard/travessia', icon: Route, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_TRAVESSIA'] },
-    { name: 'AMBIENTAL', href: '/dashboard/ambiental', icon: Leaf, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_AMBIENTAL'] },
-    { name: 'ANUÊNCIA', href: '/dashboard/anuencia', icon: FileText, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_ANUENCIA'] },
-    { name: 'PAINEL PARCEIRA', href: '/dashboard/parceira', icon: Briefcase, section: 'OPERAÇÃO', allowedRoles: ['PARCEIRA'] },
+    { name: 'TRAVESSIA', href: '/dashboard/travessia', icon: Route, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_TRAVESSIA', 'PARCEIRA'] },
+    { name: 'AMBIENTAL', href: '/dashboard/ambiental', icon: Leaf, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_AMBIENTAL', 'PARCEIRA'] },
+    { name: 'ANUÊNCIA', href: '/dashboard/anuencia', icon: FileText, section: 'MÓDULOS', allowedRoles: ['ADMIN', 'GESTOR_ANUENCIA', 'PARCEIRA'] },
     { name: 'OPERACIONAL', href: '/dashboard/operacional', icon: Activity, section: 'OPERAÇÃO', allowedRoles: ['ADMIN', 'GESTOR_TRAVESSIA', 'GESTOR_AMBIENTAL', 'GESTOR_ANUENCIA', 'PARCEIRA'] },
     { name: 'PAINEL ADMIN', href: '/dashboard/admin', icon: Settings, section: 'CONFIGURAÇÕES', allowedRoles: ['ADMIN'] },
   ];

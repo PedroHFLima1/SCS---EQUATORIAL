@@ -39,8 +39,6 @@ export default function LoginPage() {
     if (isManualLogin && user && !authLoading) {
       if (role === 'ADMIN') {
         router.push('/dashboard/admin');
-      } else if (role === 'PARCEIRA') {
-        router.push('/dashboard/parceira');
       } else {
         router.push('/dashboard/travessia');
       }

@@ -83,40 +83,12 @@ export async function importTriagemData(data: any[]) {
   }
 }
 
-export async function aprovarTriagemDireto(id: string, user: string) {
+export async function aprovarTriagem(id: string, changes: any, user: string) {
   try {
     const process = await prisma.process.update({
       where: { id },
       data: {
         statusTriagem: 'FINALIZADO',
-      }
-    });
-
-    await prisma.movement.create({
-      data: {
-        processId: id,
-        description: `Triagem aprovada diretamente sem alterações.`,
-        user: user,
-      }
-    });
-
-    revalidatePath('/dashboard/operacional');
-    return { success: true, process };
-  } catch (error) {
-    console.error('Erro ao aprovar triagem:', error);
-    return { success: false, error: 'Falha ao aprovar triagem' };
-  }
-}
-
-export async function solicitarAprovacaoTriagem(id: string, changes: any, justification: string, user: string) {
-  try {
-    const process = await prisma.process.update({
-      where: { id },
-      data: {
-        statusTriagem: 'EM_APROVACAO',
-        // We can save the requested changes in a JSON field if we had one, 
-        // but for now we just update the fields and set status to EM_APROVACAO
-        // so the Admin can review the current state.
         pendenciaAnuencia: changes.pendenciaAnuencia,
         pendenciaTravessia: changes.pendenciaTravessia,
         pendenciaAmbiental: changes.pendenciaAmbiental,
@@ -126,7 +98,7 @@ export async function solicitarAprovacaoTriagem(id: string, changes: any, justif
     await prisma.movement.create({
       data: {
         processId: id,
-        description: `Solicitação de aprovação com alterações. Justificativa: ${justification}`,
+        description: `Triagem aprovada.`,
         user: user,
       }
     });
@@ -134,33 +106,8 @@ export async function solicitarAprovacaoTriagem(id: string, changes: any, justif
     revalidatePath('/dashboard/operacional');
     return { success: true, process };
   } catch (error) {
-    console.error('Erro ao solicitar aprovação:', error);
-    return { success: false, error: 'Falha ao solicitar aprovação' };
-  }
-}
-
-export async function aprovarAlteracaoTriagem(id: string, user: string) {
-  try {
-    const process = await prisma.process.update({
-      where: { id },
-      data: {
-        statusTriagem: 'FINALIZADO',
-      }
-    });
-
-    await prisma.movement.create({
-      data: {
-        processId: id,
-        description: `Alterações da triagem aprovadas pelo Gestor/Admin.`,
-        user: user,
-      }
-    });
-
-    revalidatePath('/dashboard/operacional');
-    return { success: true, process };
-  } catch (error) {
-    console.error('Erro ao aprovar alteração:', error);
-    return { success: false, error: 'Falha ao aprovar alteração' };
+    console.error('Erro ao aprovar triagem:', error);
+    return { success: false, error: 'Falha ao aprovar triagem' };
   }
 }
 
