@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
+import { useAuth } from '@/app/context/AuthContext';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -33,6 +34,7 @@ interface DrillDownTableProps {
 }
 
 export function DrillDownTable({ processes, role, moduleName = 'admin', openTreatment, handleSendEmail, confirmCancel }: DrillDownTableProps) {
+  const { company } = useAuth();
   const [selectedInscricao, setSelectedInscricao] = useState<string | null>(null);
   const [selectedProjeto, setSelectedProjeto] = useState<string | null>(null);
   
@@ -44,7 +46,7 @@ export function DrillDownTable({ processes, role, moduleName = 'admin', openTrea
   const [protocolForm, setProtocolForm] = useState({
     protocolo: '',
     concessionaria: '',
-    parceira: '',
+    parceira: role === 'PARCEIRA' ? (company || '') : '',
     status: 'NOVO',
     dataProtocolo: '',
     valor: '',
@@ -167,7 +169,7 @@ export function DrillDownTable({ processes, role, moduleName = 'admin', openTrea
     setProtocolForm({
       protocolo: '',
       concessionaria: '',
-      parceira: projetos[0]?.parceira || '',
+      parceira: role === 'PARCEIRA' ? (company || '') : (projetos[0]?.parceira || ''),
       status: 'NOVO',
       dataProtocolo: '',
       valor: '',
@@ -179,7 +181,8 @@ export function DrillDownTable({ processes, role, moduleName = 'admin', openTrea
     setIsProtocolModalOpen(true);
   };
 
-  const handleSaveProtocol = () => {
+  const handleSaveProtocol = (e: React.FormEvent) => {
+    e.preventDefault();
     const newProtocol = {
       id: `manual-${Date.now()}`,
       inscricao: selectedInscricao,
@@ -503,128 +506,199 @@ export function DrillDownTable({ processes, role, moduleName = 'admin', openTrea
       {isProtocolModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl rounded-lg bg-white dark:bg-gray-900 shadow-xl border dark:border-gray-800 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b dark:border-gray-800 p-4 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Adicionar Protocolo Manual</h3>
-              <button onClick={() => setIsProtocolModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">N° Protocolo</label>
-                  <input
-                    type="text"
-                    value={protocolForm.protocolo}
-                    onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Concessionária</label>
-                  <input
-                    type="text"
-                    value={protocolForm.concessionaria}
-                    onChange={(e) => setProtocolForm({...protocolForm, concessionaria: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Parceira</label>
-                  <input
-                    type="text"
-                    value={protocolForm.parceira}
-                    onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Status Atual</label>
-                  <select
-                    value={protocolForm.status}
-                    onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  >
-                    <option>NOVO</option>
-                    <option>TRIAGEM</option>
-                    <option>CORREÇÃO</option>
-                    <option>PROTOCOLADO</option>
-                    <option>APROVADO</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Protocolo</label>
-                  <input
-                    type="date"
-                    value={protocolForm.dataProtocolo}
-                    onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Valor</label>
-                  <input
-                    type="text"
-                    value={protocolForm.valor}
-                    onChange={(e) => setProtocolForm({...protocolForm, valor: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Vencimento Boleto</label>
-                  <input
-                    type="date"
-                    value={protocolForm.dataVencimento}
-                    onChange={(e) => setProtocolForm({...protocolForm, dataVencimento: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                  <input
-                    type="text"
-                    value={protocolForm.tipo}
-                    onChange={(e) => setProtocolForm({...protocolForm, tipo: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Rodovia</label>
-                  <input
-                    type="text"
-                    value={protocolForm.rodovia}
-                    onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">KM</label>
-                  <input
-                    type="text"
-                    value={protocolForm.km}
-                    onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value})}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  />
+            <form onSubmit={handleSaveProtocol} className="flex flex-col max-h-[90vh]">
+              <div className="flex items-center justify-between border-b dark:border-gray-800 p-4 shrink-0">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Adicionar Protocolo Manual</h3>
+                <button type="button" onClick={() => setIsProtocolModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">N° Protocolo</label>
+                    <input
+                      type="text"
+                      required
+                      value={protocolForm.protocolo}
+                      onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Concessionária</label>
+                    <select
+                      required
+                      value={protocolForm.concessionaria}
+                      onChange={(e) => setProtocolForm({...protocolForm, concessionaria: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="GOINFRA">GOINFRA</option>
+                      <option value="DNIT">DNIT</option>
+                      <option value="TRIUNFO CONCEBRA">TRIUNFO CONCEBRA</option>
+                      <option value="ECOVIAS DO ARAGUAIA">ECOVIAS DO ARAGUAIA</option>
+                      <option value="ECOVIAS DO CERRADO">ECOVIAS DO CERRADO</option>
+                      <option value="ECO-050">ECO-050</option>
+                      <option value="EQTL">EQTL</option>
+                      <option value="EDP">EDP</option>
+                      <option value="ELETROBRAS/FURNAS">ELETROBRAS/FURNAS</option>
+                      <option value="RUMO">RUMO</option>
+                      <option value="VALEC/INFRA">VALEC/INFRA</option>
+                      <option value="VLI - CENTRO ATLANTICA">VLI - CENTRO ATLANTICA</option>
+                      <option value="BELO MONTE">BELO MONTE</option>
+                      <option value="BRENCO - ATVOS">BRENCO - ATVOS</option>
+                      <option value="STATE GRID">STATE GRID</option>
+                      <option value="ENERGISA">ENERGISA</option>
+                      <option value="ENGIE">ENGIE</option>
+                      <option value="TRANSENERGIA">TRANSENERGIA</option>
+                      <option value="GOIÁS TRANSMISSÃO S.A">GOIÁS TRANSMISSÃO S.A</option>
+                      <option value="GOIAS SUL GERAÇAO DE ENERGIA S/A">GOIAS SUL GERAÇAO DE ENERGIA S/A</option>
+                      <option value="PCH IRARA/CABRIÚVA – IRARA ENERGÉTICA">PCH IRARA/CABRIÚVA – IRARA ENERGÉTICA</option>
+                      <option value="PCH MAMBAÍ II">PCH MAMBAÍ II</option>
+                      <option value="CARNAÚBA ENERGIA S.A">CARNAÚBA ENERGIA S.A</option>
+                      <option value="VOTORANTIM METAIS">VOTORANTIM METAIS</option>
+                      <option value="TAESA">TAESA</option>
+                      <option value="GTE – GUARACIABA TRANSMISSORA DE ENERGIA S A">GTE – GUARACIABA TRANSMISSORA DE ENERGIA S A</option>
+                      <option value="SEFAC">SEFAC</option>
+                      <option value="GUARACIABA TRANSMISSORA DE ENERGIA">GUARACIABA TRANSMISSORA DE ENERGIA</option>
+                      <option value="NORTE BRASIL TRANSMISSORA">NORTE BRASIL TRANSMISSORA</option>
+                      <option value="PARANAÍBA TRANSMISSORA DE ENERGIA S.A">PARANAÍBA TRANSMISSORA DE ENERGIA S.A</option>
+                      <option value="ESSENTIA ENERGIA">ESSENTIA ENERGIA</option>
+                      <option value="NEOENERGIA">NEOENERGIA</option>
+                      <option value="VSBTE - VALE DO SÃO BARTOLOMEU">VSBTE - VALE DO SÃO BARTOLOMEU</option>
+                      <option value="IEM - INTERLIGAÇÃO ELETRICA DO MADEIRA S.A">IEM - INTERLIGAÇÃO ELETRICA DO MADEIRA S.A</option>
+                      <option value="BP BIOENERGIA ITUMBIARA S.A">BP BIOENERGIA ITUMBIARA S.A</option>
+                      <option value="ITUMBIARA TRANSMISSORA DE ENERGIA S.A/STATE GRID">ITUMBIARA TRANSMISSORA DE ENERGIA S.A/STATE GRID</option>
+                      <option value="VIA CRISTAIS">VIA CRISTAIS</option>
+                      <option value="TECPAV ROTA VERDE">TECPAV ROTA VERDE</option>
+                      <option value="BRENTECH">BRENTECH</option>
+                      <option value="FLEGADO INDEVIDAMENTE">FLEGADO INDEVIDAMENTE</option>
+                      <option value="NAO SE APLICA">NAO SE APLICA</option>
+                      <option value="CATXERE">CATXERE</option>
+                      <option value="ESPORA ENERGÉTICA S.A">ESPORA ENERGÉTICA S.A</option>
+                      <option value="RIO VERDE S.A">RIO VERDE S.A</option>
+                      <option value="GERDAU AÇOS LONGOS S.A">GERDAU AÇOS LONGOS S.A</option>
+                      <option value="CHESP">CHESP</option>
+                      <option value="KINROSS MINERAÇÃO">KINROSS MINERAÇÃO</option>
+                      <option value="INTEGRAÇÃO TRANSMISSORA DE ENERGIA">INTEGRAÇÃO TRANSMISSORA DE ENERGIA</option>
+                      <option value="FIRMINÓPOLIS TRANSMISSORA">FIRMINÓPOLIS TRANSMISSORA</option>
+                      <option value="AUREN ENERGIA">AUREN ENERGIA</option>
+                      <option value="LAGO AZUL TRANSMISSORA">LAGO AZUL TRANSMISSORA</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Parceira</label>
+                    <input
+                      type="text"
+                      required
+                      disabled={role === 'PARCEIRA'}
+                      value={protocolForm.parceira}
+                      onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Status Atual</label>
+                    <select
+                      required
+                      value={protocolForm.status}
+                      onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      <option>NOVO</option>
+                      <option>TRIAGEM</option>
+                      <option>CORREÇÃO</option>
+                      <option>PROTOCOLADO</option>
+                      <option>APROVADO</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Protocolo</label>
+                    <input
+                      type="date"
+                      required
+                      value={protocolForm.dataProtocolo}
+                      onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Valor</label>
+                    <input
+                      type="text"
+                      required
+                      value={protocolForm.valor}
+                      onChange={(e) => setProtocolForm({...protocolForm, valor: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Vencimento Boleto</label>
+                    <input
+                      type="date"
+                      required
+                      value={protocolForm.dataVencimento}
+                      onChange={(e) => setProtocolForm({...protocolForm, dataVencimento: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+                    <select
+                      required
+                      value={protocolForm.tipo}
+                      onChange={(e) => setProtocolForm({...protocolForm, tipo: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="RODOVIA/TRANSVERSAL">RODOVIA/TRANSVERSAL</option>
+                      <option value="RODOVIA/LONGITUDINAL">RODOVIA/LONGITUDINAL</option>
+                      <option value="LINHA DE TRANSMISSAO">LINHA DE TRANSMISSAO</option>
+                      <option value="FERROVIA/TRANSVERSAL">FERROVIA/TRANSVERSAL</option>
+                      <option value="FERROVIA/LONGITUDINAL">FERROVIA/LONGITUDINAL</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Rodovia</label>
+                    <input
+                      type="text"
+                      required
+                      value={protocolForm.rodovia}
+                      onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">KM</label>
+                    <input
+                      type="text"
+                      required
+                      value={protocolForm.km}
+                      onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex justify-end space-x-3 border-t dark:border-gray-800 p-4 bg-gray-50 dark:bg-gray-800/50 shrink-0">
-              <button
-                onClick={() => setIsProtocolModalOpen(false)}
-                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveProtocol}
-                disabled={!protocolForm.protocolo}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                Salvar Protocolo
-              </button>
-            </div>
+              <div className="flex justify-end space-x-3 border-t dark:border-gray-800 p-4 bg-gray-50 dark:bg-gray-800/50 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsProtocolModalOpen(false)}
+                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Salvar Protocolo
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

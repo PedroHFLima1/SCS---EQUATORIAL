@@ -48,6 +48,8 @@ model Process {
   inscricao           String?
   concessionaria      String?
   partner             String?
+  statusInscricao     String   @default("NÃO INICIADO")
+  statusProjeto       String   @default("NÃO INICIADO")
   status              String   @default("NOVO")
   protocol            String?
   valor               String?
