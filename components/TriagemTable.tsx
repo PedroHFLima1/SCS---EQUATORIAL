@@ -66,8 +66,11 @@ export function TriagemTable({ items }: TriagemTableProps) {
     let filtered = localItems;
 
     // Filter by role
-    if (role === 'PARCEIRA' && company) {
-      filtered = filtered.filter(item => item.parceiraProjeto === company);
+    if (role !== 'ADMIN' && company) {
+      const companyUpper = company.toUpperCase();
+      if (role === 'PARCEIRA' || companyUpper.includes('AFAPLAN') || companyUpper.includes('APPLUS')) {
+        filtered = filtered.filter(item => item.parceiraProjeto?.toUpperCase() === companyUpper);
+      }
     }
 
     // Filter by tab

@@ -10,6 +10,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid data format' }, { status: 400 });
     }
 
+    console.log('First process item:', processes[0]);
+
     const result = await importTriagemData(processes);
     
     if (!result.success) {

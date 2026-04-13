@@ -84,9 +84,10 @@ export default function TravessiaPage() {
     try {
       const res = await fetch('/api/processes?module=travessia');
       const data = await res.json();
-      setProcesses(data);
+      setProcesses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch processes:', error);
+      setProcesses([]);
     }
   };
 

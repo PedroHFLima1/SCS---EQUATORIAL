@@ -7,79 +7,105 @@ export async function importTriagemData(data: any[]) {
   try {
     let importedCount = 0;
 
-    for (const item of data) {
+    for (const rawItem of data) {
+      // Normalize keys to uppercase
+      const item: any = {};
+      for (const key in rawItem) {
+        item[key.toUpperCase()] = rawItem[key];
+      }
+
       // Mapear campos do Snowflake para o Prisma
-      const idSolicitacao = item.ID_SOLICITACAO;
-      const projeto = item.PROJETO;
+      const idSolicitacao = item.ID_SOLICITACAO || item.INSCRICAO ? String(item.ID_SOLICITACAO || item.INSCRICAO) : null;
+      const projeto = item.PROJETO ? String(item.PROJETO) : null;
 
       if (!idSolicitacao || !projeto) {
+        console.log('Skipping row, missing idSolicitacao or projeto:', item);
         continue; // Pula registros inválidos
       }
 
-      const fluxoPassagem = item.FLUXO_PASSAGEM || 'NAO';
-      const fluxoTravessia = item.FLUXO_TRAVESSIA || 'NAO';
-      const fluxoTravessiaLt = item.FLUXO_TRAVESSIA_LT || 'NAO';
-      const fluxoAmbiental = item.FLUXO_AMBIENTAL || 'NAO';
+      const fluxoPassagem = item.FLUXO_PASSAGEM ? String(item.FLUXO_PASSAGEM) : 'NAO';
+      const fluxoTravessia = item.FLUXO_TRAVESSIA ? String(item.FLUXO_TRAVESSIA) : 'NAO';
+      const fluxoTravessiaLt = item.FLUXO_TRAVESSIA_LT ? String(item.FLUXO_TRAVESSIA_LT) : 'NAO';
+      const fluxoAmbiental = item.FLUXO_AMBIENTAL ? String(item.FLUXO_AMBIENTAL) : 'NAO';
 
       // Lógica de pendência inicial baseada nos fluxos do banco
       const pendenciaAnuencia = fluxoPassagem.toUpperCase() === 'SIM';
       const pendenciaTravessia = fluxoTravessia.toUpperCase() === 'SIM' || fluxoTravessiaLt.toUpperCase() === 'SIM';
       const pendenciaAmbiental = fluxoAmbiental.toUpperCase() === 'SIM';
 
-      await prisma.process.upsert({
-        where: {
-          idSolicitacao_projeto: {
-            idSolicitacao: idSolicitacao,
-            projeto: projeto,
-          }
-        },
-        update: {
-          idSugopGeruso: item.ID_SUGOP_GERUSO,
-          municipio: item.MUNICIPIO,
-          regional: item.REGIONAL,
-          superintendencia: item.SUPERINTENDENCIA,
-          fluxoPassagem: item.FLUXO_PASSAGEM,
-          fluxoTravessia: item.FLUXO_TRAVESSIA,
-          fluxoTravessiaLt: item.FLUXO_TRAVESSIA_LT,
-          fluxoAmbiental: item.FLUXO_AMBIENTAL,
-          parceiraProjeto: item.PARCEIRA_PROJETO,
-          dataEnvioObra: item.DATA_ENVIO_OBRA_SUGOP ? new Date(item.DATA_ENVIO_OBRA_SUGOP) : null,
-          // Não atualizamos as pendências se já existem, para não sobrescrever o trabalho da Parceira
-          // A menos que a regra de negócio exija. Vamos assumir que o upsert atualiza os dados base.
-        },
-        create: {
-          idSolicitacao: idSolicitacao,
-          idSugopGeruso: item.ID_SUGOP_GERUSO,
-          projeto: projeto,
-          municipio: item.MUNICIPIO,
-          regional: item.REGIONAL,
-          superintendencia: item.SUPERINTENDENCIA,
-          fluxoPassagem: item.FLUXO_PASSAGEM,
-          fluxoTravessia: item.FLUXO_TRAVESSIA,
-          fluxoTravessiaLt: item.FLUXO_TRAVESSIA_LT,
-          fluxoAmbiental: item.FLUXO_AMBIENTAL,
-          parceiraProjeto: item.PARCEIRA_PROJETO,
-          dataEnvioObra: item.DATA_ENVIO_OBRA_SUGOP ? new Date(item.DATA_ENVIO_OBRA_SUGOP) : null,
-          
-          pendenciaAnuencia,
-          pendenciaTravessia,
-          pendenciaAmbiental,
-          statusTriagem: 'PENDENTE',
-          
-          // Legacy fields mapping to avoid breaking existing views completely
-          inscricao: idSolicitacao,
-          partner: item.PARCEIRA_PROJETO,
-        }
-      });
+      const parsedDate = item.DATA_ENVIO_OBRA_SUGOP ? new Date(item.DATA_ENVIO_OBRA_SUGOP) : null;
+      const dataEnvioObra = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : null;
 
-      importedCount++;
+      try {
+        await prisma.process.upsert({
+          where: {
+            idSolicitacao_projeto: {
+              idSolicitacao: idSolicitacao,
+              projeto: projeto,
+            }
+          },
+          update: {
+            idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
+            municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : null,
+            regional: item.REGIONAL ? String(item.REGIONAL) : null,
+            superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : null,
+            fluxoPassagem: fluxoPassagem,
+            fluxoTravessia: fluxoTravessia,
+            fluxoTravessiaLt: fluxoTravessiaLt,
+            fluxoAmbiental: fluxoAmbiental,
+            parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
+            dataEnvioObra: dataEnvioObra,
+            // Não atualizamos as pendências se já existem, para não sobrescrever o trabalho da Parceira
+            // A menos que a regra de negócio exija. Vamos assumir que o upsert atualiza os dados base.
+          },
+          create: {
+            idSolicitacao: idSolicitacao,
+            idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
+            projeto: projeto,
+            municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : null,
+            regional: item.REGIONAL ? String(item.REGIONAL) : null,
+            superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : null,
+            fluxoPassagem: fluxoPassagem,
+            fluxoTravessia: fluxoTravessia,
+            fluxoTravessiaLt: fluxoTravessiaLt,
+            fluxoAmbiental: fluxoAmbiental,
+            parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
+            dataEnvioObra: dataEnvioObra,
+            
+            pendenciaAnuencia,
+            pendenciaTravessia,
+            pendenciaAmbiental,
+            statusTriagem: 'PENDENTE',
+            
+            // Legacy fields mapping to avoid breaking existing views completely
+            inscricao: idSolicitacao,
+            partner: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
+            concessionaria: null,
+            statusInscricao: 'NÃO INICIADO',
+            statusProjeto: 'NÃO INICIADO',
+            status: 'NOVO',
+            protocol: null,
+            valor: null,
+            dataVencimento: null,
+            tipo: null,
+            rodovia: null,
+            km: null,
+            sla: '12d',
+            module: 'travessia',
+          }
+        });
+        importedCount++;
+      } catch (rowError) {
+        console.error(`Erro ao importar linha (Solicitação: ${idSolicitacao}, Projeto: ${projeto}):`, rowError);
+        // Continue to the next row even if this one fails
+      }
     }
 
     revalidatePath('/dashboard/operacional'); // Revalidar a página onde a tabela será exibida
     return { success: true, count: importedCount };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao importar dados de triagem:', error);
-    return { success: false, error: 'Falha ao importar dados' };
+    return { success: false, error: error.message || 'Falha ao importar dados' };
   }
 }
 

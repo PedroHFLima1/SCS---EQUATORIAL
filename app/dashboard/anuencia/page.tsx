@@ -78,9 +78,10 @@ export default function AnuenciaPage() {
     try {
       const res = await fetch('/api/processes?module=anuencia');
       const data = await res.json();
-      setProcesses(data);
+      setProcesses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch processes:', error);
+      setProcesses([]);
     }
   };
 

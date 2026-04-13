@@ -33,7 +33,7 @@ interface DrillDownTableProps {
   confirmCancel?: (process: any) => void;
 }
 
-export function DrillDownTable({ processes, role, moduleName = 'admin', openTreatment, handleSendEmail, confirmCancel }: DrillDownTableProps) {
+export function DrillDownTable({ processes = [], role, moduleName = 'admin', openTreatment, handleSendEmail, confirmCancel }: DrillDownTableProps) {
   const { company } = useAuth();
   const [selectedInscricao, setSelectedInscricao] = useState<string | null>(null);
   const [selectedProjeto, setSelectedProjeto] = useState<string | null>(null);

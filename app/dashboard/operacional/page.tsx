@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { TriagemTable } from '@/components/TriagemTable';
 
+export const dynamic = 'force-dynamic';
+
 export default async function OperacionalPage() {
   // Fetch all processes for triagem
   const processesRaw = await prisma.process.findMany({

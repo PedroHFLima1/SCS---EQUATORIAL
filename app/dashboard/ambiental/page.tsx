@@ -78,9 +78,10 @@ export default function AmbientalPage() {
     try {
       const res = await fetch('/api/processes?module=ambiental');
       const data = await res.json();
-      setProcesses(data);
+      setProcesses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch processes:', error);
+      setProcesses([]);
     }
   };
 

@@ -2,13 +2,14 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "auth"]
 }
 
 model User {
@@ -19,6 +20,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   notifications Notification[]
+
+  @@schema("public")
 }
 
 model Process {
@@ -64,6 +67,7 @@ model Process {
   movements           Movement[]
 
   @@unique([idSolicitacao, projeto])
+  @@schema("public")
 }
 
 model Movement {
@@ -73,6 +77,8 @@ model Movement {
   description String
   date        DateTime @default(now())
   user        String
+
+  @@schema("public")
 }
 
 model Notification {
@@ -85,4 +91,6 @@ model Notification {
   timestamp DateTime @default(now())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
+
+  @@schema("public")
 }

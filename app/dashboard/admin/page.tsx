@@ -126,9 +126,10 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/processes');
       const data = await res.json();
-      setProcesses(data);
+      setProcesses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch processes:', error);
+      setProcesses([]);
     }
   };
 
@@ -149,33 +150,32 @@ export default function AdminPage() {
     Papa.parse(selectedFile, {
       header: true,
       skipEmptyLines: true,
-      delimiter: ';', // Explicitly set delimiter to semicolon
       complete: async (results) => {
         try {
           const data = results.data as any[];
-          
-          // Map CSV data to expected format
-          const mappedProcesses = data.map(row => ({
-            inscricao: row.PRP_NUM_INSCRICAO || row.INSCRICAO || row.inscricao || `IMP-${Math.floor(Math.random() * 10000)}`,
-            projeto: row.PRO_NUM_PROJETO || row.PROJETO || row.projeto || 'Projeto Importado',
-            concessionaria: row.CONCESSIONARIA || row.concessionaria || 'Não informada',
-            partner: row.PARCEIRA_PROJETO || row.PARCEIRA || row.partner || 'Não informada',
-            status: row.SITUACAO_DA_FILA || row.STATUS || row.status || 'NOVO',
-            protocol: row.PROTOCOLO || row.protocol || '',
-            sla: row.DIAS_PARADO_ATUAL ? `${row.DIAS_PARADO_ATUAL}d` : (row.SLA || row.sla || '12d'),
-            FILA_ATUAL: row.FILA_ATUAL || row.fila_atual || ''
-          }));
+          const BATCH_SIZE = 100;
+          let totalImported = 0;
 
-          const res = await fetch('/api/processes/import', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ processes: mappedProcesses })
-          });
+          for (let i = 0; i < data.length; i += BATCH_SIZE) {
+            const batch = data.slice(i, i + BATCH_SIZE);
+            setImportStatus(`Importando lote ${Math.floor(i / BATCH_SIZE) + 1} de ${Math.ceil(data.length / BATCH_SIZE)}...`);
+            
+            const res = await fetch('/api/processes/import', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ processes: batch })
+            });
 
-          if (!res.ok) throw new Error('Falha na importação');
-          
-          const result = await res.json();
-          setImportStatus(`Sucesso! ${result.count} processos importados.`);
+            if (!res.ok) {
+              const errorData = await res.json().catch(() => ({}));
+              throw new Error(errorData.error || 'Falha na importação do lote');
+            }
+            
+            const result = await res.json();
+            totalImported += result.count || 0;
+          }
+
+          setImportStatus(`Sucesso! ${totalImported} processos importados.`);
           setSelectedFile(null); // Reset file selection after success
           // Refresh audit data if needed
         } catch (error: any) {
@@ -856,7 +856,7 @@ export default function AdminPage() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                O arquivo deve conter a coluna FILA_ATUAL para mapeamento automático dos módulos (Travessia, Ambiental, Anuência).
+                O arquivo deve conter as colunas da query SQL (ID_SOLICITACAO, PROJETO, FLUXO_PASSAGEM, FLUXO_TRAVESSIA, FLUXO_AMBIENTAL, PARCEIRA_PROJETO, etc).
               </p>
             </div>
             

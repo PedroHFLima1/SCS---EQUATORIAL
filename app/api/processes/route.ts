@@ -38,8 +38,8 @@ export async function GET(request: Request) {
     });
     
     return NextResponse.json(processes);
-  } catch (error) {
-    console.error('Failed to fetch processes:', error);
-    return NextResponse.json({ error: 'Failed to fetch processes' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Failed to fetch processes:', error, error.message, error.stack);
+    return NextResponse.json({ error: 'Failed to fetch processes', details: error.message }, { status: 500 });
   }
 }
