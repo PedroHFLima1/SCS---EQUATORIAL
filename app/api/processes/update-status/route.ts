@@ -4,30 +4,36 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, inscricao, module, status, user, justification, protocol, valor, dataVencimento, tipo, rodovia, km } = body;
+    const { id, inscricao, projeto, isLayer1, module, status, user, justification, protocol, valor, dataVencimento, tipo, rodovia, km } = body;
     
     let processesToUpdate = [];
     
     if (id) {
       const process = await prisma.process.findUnique({ where: { id } });
       if (process) processesToUpdate.push(process);
-    } else if (inscricao && module) {
+    } else if (inscricao) {
       let whereClause: any = {
         OR: [
           { inscricao: inscricao },
           { idSolicitacao: inscricao }
-        ],
-        statusTriagem: 'FINALIZADO'
+        ]
       };
       
-      if (module === 'anuencia') {
-        whereClause.pendenciaAnuencia = true;
-      } else if (module === 'travessia') {
-        whereClause.pendenciaTravessia = true;
-        whereClause.pendenciaAnuencia = false;
-      } else if (module === 'ambiental') {
-        whereClause.pendenciaAmbiental = true;
-        whereClause.pendenciaAnuencia = false;
+      if (!isLayer1) {
+         whereClause.statusTriagem = 'FINALIZADO';
+         if (projeto) {
+            whereClause.projeto = projeto;
+         }
+         
+         if (module === 'anuencia') {
+            whereClause.pendenciaAnuencia = true;
+         } else if (module === 'travessia') {
+            whereClause.pendenciaTravessia = true;
+            whereClause.pendenciaAnuencia = false;
+         } else if (module === 'ambiental') {
+            whereClause.pendenciaAmbiental = true;
+            whereClause.pendenciaAnuencia = false;
+         }
       }
       
       processesToUpdate = await prisma.process.findMany({ where: whereClause });
@@ -40,7 +46,13 @@ export async function POST(request: Request) {
     const updatedProcesses = [];
 
     for (const process of processesToUpdate) {
-      let dataToUpdate: any = { status };
+      let dataToUpdate: any = {};
+      
+      if (isLayer1) {
+        dataToUpdate.statusInscricao = status;
+      } else {
+        dataToUpdate.status = status;
+      }
       
       if (protocol !== undefined) dataToUpdate.protocol = protocol;
       if (valor !== undefined) dataToUpdate.valor = valor;
@@ -50,10 +62,7 @@ export async function POST(request: Request) {
       if (km !== undefined) dataToUpdate.km = km;
 
       // Regra de bloqueio da Anuência:
-      // Se o processo está sendo aprovado na Anuência, limpamos a pendência.
-      // Se houver outras pendências (Travessia ou Ambiental), resetamos o status para NOVO
-      // para que ele entre na fila dos próximos módulos corretamente.
-      if (module === 'anuencia' && status === 'APROVADO' && process.pendenciaAnuencia) {
+      if (!isLayer1 && module === 'anuencia' && status === 'APROVADO' && process.pendenciaAnuencia) {
         dataToUpdate.pendenciaAnuencia = false;
         
         if (process.pendenciaTravessia || process.pendenciaAmbiental) {
@@ -70,7 +79,7 @@ export async function POST(request: Request) {
       await prisma.movement.create({
         data: {
           processId: process.id,
-          description: `Status alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' ? ' (Encaminhado para próximos módulos)' : ''}`,
+          description: `Status ${isLayer1 ? 'da Inscrição ' : ''}alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' ? ' (Encaminhado para próximos módulos)' : ''}`,
           user: user || 'Sistema',
         }
       });
@@ -78,8 +87,8 @@ export async function POST(request: Request) {
       // Create notification
       await prisma.notification.create({
         data: {
-          title: 'Status Atualizado',
-          message: `O processo ${updatedProcess.inscricao} mudou para ${dataToUpdate.status}`,
+          title: `Status ${isLayer1 ? 'da Inscrição ' : ''}Atualizado`,
+          message: `O processo ${updatedProcess.inscricao} mudou para ${status}`,
           type: 'info',
           processId: updatedProcess.inscricao || '',
         }

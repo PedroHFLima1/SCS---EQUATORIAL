@@ -7,6 +7,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useNotifications } from '@/app/context/NotificationContext';
 import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
+import { CONCESSIONARIAS } from '@/lib/constants';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -98,26 +99,30 @@ export default function TravessiaPage() {
 
     // Filter by Partner based on company
     if (role === 'PARCEIRA' && company) {
-      result = result.filter(p => p.partner === company);
+      result = result.filter(p => {
+        const processPartner = p.partner || p.parceiraProjeto || '';
+        return processPartner.toLowerCase() === company.toLowerCase() && p.status !== 'APROVADO';
+      });
     }
 
     // Global Search
     if (globalSearch) {
       const lowerSearch = globalSearch.toLowerCase();
       result = result.filter(p => 
-        p.inscricao.toLowerCase().includes(lowerSearch) || 
-        p.projeto.toLowerCase().includes(lowerSearch) ||
-        p.concessionaria.toLowerCase().includes(lowerSearch) ||
-        p.partner.toLowerCase().includes(lowerSearch)
+        (p.inscricao && p.inscricao.toLowerCase().includes(lowerSearch)) || 
+        (p.projeto && p.projeto.toLowerCase().includes(lowerSearch)) ||
+        (p.concessionaria && p.concessionaria.toLowerCase().includes(lowerSearch)) ||
+        (p.partner && p.partner.toLowerCase().includes(lowerSearch)) ||
+        (p.parceiraProjeto && p.parceiraProjeto.toLowerCase().includes(lowerSearch))
       );
     }
 
     // Specific Filters
     if (searchInscricao) {
-      result = result.filter(p => p.inscricao.toLowerCase().includes(searchInscricao.toLowerCase()));
+      result = result.filter(p => p.inscricao && p.inscricao.toLowerCase().includes(searchInscricao.toLowerCase()));
     }
     if (searchProjeto) {
-      result = result.filter(p => p.projeto.toLowerCase().includes(searchProjeto.toLowerCase()));
+      result = result.filter(p => p.projeto && p.projeto.toLowerCase().includes(searchProjeto.toLowerCase()));
     }
     if (statusFilter !== 'Todas as Fases') {
       result = result.filter(p => p.status === statusFilter);
@@ -125,8 +130,8 @@ export default function TravessiaPage() {
     if (concessionariaFilter !== 'Todas') {
       result = result.filter(p => p.concessionaria === concessionariaFilter);
     }
-    if (parceiraFilter !== 'Todas') {
-      result = result.filter(p => p.partner === parceiraFilter);
+    if (role !== 'PARCEIRA' && parceiraFilter !== 'Todas') {
+      result = result.filter(p => (p.partner || p.parceiraProjeto) === parceiraFilter);
     }
 
     // Sorting
@@ -172,6 +177,8 @@ export default function TravessiaPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             inscricao: selectedProcess.inscricao || selectedProcess.idSolicitacao,
+            projeto: selectedProcess.isLayer1 ? undefined : selectedProcess.projeto,
+            isLayer1: selectedProcess.isLayer1,
             module: 'travessia',
             status: newStatus,
             justification: justification,
@@ -262,11 +269,11 @@ export default function TravessiaPage() {
       {/* Summary Cards */}
       <div className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: 'NOVOS', count: processes.filter(p => p.status === 'NOVO').length, color: 'border-blue-500' },
-          { label: 'TRIAGEM', count: processes.filter(p => p.status === 'TRIAGEM').length, color: 'border-yellow-500' },
-          { label: 'CORREÇÃO', count: processes.filter(p => p.status === 'CORREÇÃO').length, color: 'border-orange-500' },
-          { label: 'PROTOCOLADOS', count: processes.filter(p => p.status === 'PROTOCOLADO').length, color: 'border-purple-500' },
-          { label: 'APROVADOS', count: processes.filter(p => p.status === 'APROVADO').length, color: 'border-green-500' },
+          { label: 'NÃO SE APLICA', count: processes.filter(p => (p.statusInscricao || p.status) === 'NÃO SE APLICA').length, color: 'border-gray-500' },
+          { label: 'NÃO INICIADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'NÃO INICIADO').length, color: 'border-yellow-500' },
+          { label: 'EM ANDAMENTO', count: processes.filter(p => (p.statusInscricao || p.status) === 'EM ANDAMENTO').length, color: 'border-blue-500' },
+          { label: 'APROVADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'APROVADO').length, color: 'border-green-500' },
+          { label: 'CANCELADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'CANCELADO').length, color: 'border-red-500' },
         ].map((card) => (
           <div key={card.label} className={`rounded-lg bg-white dark:bg-gray-900 p-4 shadow-sm border-b-4 ${card.color}`}>
             <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">{card.label}</div>
@@ -308,11 +315,11 @@ export default function TravessiaPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas as Fases</option>
-                  <option>NOVO</option>
-                  <option>TRIAGEM</option>
-                  <option>CORREÇÃO</option>
-                  <option>PROTOCOLADO</option>
+                  <option>NÃO SE APLICA</option>
+                  <option>NÃO INICIADO</option>
+                  <option>EM ANDAMENTO</option>
                   <option>APROVADO</option>
+                  <option>CANCELADO</option>
                 </select>
               </div>
               <div>
@@ -323,13 +330,12 @@ export default function TravessiaPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas</option>
-                  <option>Equatorial MA</option>
-                  <option>Equatorial PA</option>
-                  <option>Equatorial PI</option>
-                  <option>Equatorial AL</option>
-                  <option>Equatorial GO</option>
+                  {CONCESSIONARIAS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
               </div>
+            {role !== 'PARCEIRA' && (
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Parceira</label>
                 <select 
@@ -342,6 +348,7 @@ export default function TravessiaPage() {
                   <option>Applus</option>
                 </select>
               </div>
+            )}
             <div className="w-full shrink-0">
               <label className="mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ordenar Por</label>
               <select 
@@ -362,9 +369,9 @@ export default function TravessiaPage() {
           processes={filteredProcesses} 
           role={role} 
           moduleName="travessia"
-          openTreatment={role === 'PARCEIRA' ? undefined : openTreatment} 
-          handleSendEmail={role === 'PARCEIRA' ? undefined : handleSendEmail} 
-          confirmCancel={role === 'PARCEIRA' ? undefined : confirmCancel} 
+          openTreatment={role !== 'PARCEIRA' && role !== 'ADMIN' ? undefined : openTreatment} 
+          handleSendEmail={handleSendEmail} 
+          confirmCancel={role !== 'PARCEIRA' && role !== 'ADMIN' ? undefined : confirmCancel} 
         />
       </div>
 
@@ -393,10 +400,25 @@ export default function TravessiaPage() {
                     className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Selecione um status</option>
-                    <option>CORREÇÃO</option>
-                    <option>TRIAGEM</option>
-                    <option>PROTOCOLADO</option>
-                    <option>APROVADO</option>
+                    {selectedProcess?.isLayer1 ? (
+                      <>
+                        <option>NÃO SE APLICA</option>
+                        <option>NÃO INICIADO</option>
+                        <option>EM ANDAMENTO</option>
+                        <option>APROVADO</option>
+                        <option>CANCELADO</option>
+                      </>
+                    ) : (
+                      <>
+                        <option>CANCELADO</option>
+                        <option>NÃO INICIADO</option>
+                        <option>TAXA</option>
+                        <option>PROTOCOLADO</option>
+                        <option>APROVADO</option>
+                        <option>EM CORREÇÃO</option>
+                        <option>EM ANDAMENTO CONCESSIONÁRIA</option>
+                      </>
+                    )}
                   </select>
                 </div>
 

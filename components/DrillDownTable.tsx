@@ -7,6 +7,7 @@ import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings,
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
 import { useAuth } from '@/app/context/AuthContext';
+import { CONCESSIONARIAS } from '@/lib/constants';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -86,14 +87,22 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         map.set(key, {
           inscricao: key,
           parceira: p.parceiraProjeto || p.partner,
-          status: p.status,
+          status: p.statusInscricao || 'NÃO INICIADO',
           municipio: p.municipio || '-',
           regional: p.regional || '-',
           superintendencia: p.superintendencia || '-',
           sla: p.sla,
-          firstProcess: p, // Keep reference to first process for actions
+          pendenciaAmbiental: p.pendenciaAmbiental,
+          pendenciaAnuencia: p.pendenciaAnuencia,
+          pendenciaTravessia: p.pendenciaTravessia,
+          firstProcess: { ...p, isLayer1: true }, // Keep reference to first process for actions, mark as layer1
           projetos: new Set()
         });
+      } else {
+        const entry = map.get(key);
+        if (p.pendenciaAmbiental) entry.pendenciaAmbiental = true;
+        if (p.pendenciaAnuencia) entry.pendenciaAnuencia = true;
+        if (p.pendenciaTravessia) entry.pendenciaTravessia = true;
       }
       map.get(key).projetos.add(p.projeto);
     });
@@ -226,7 +235,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           <Mail className="h-4 w-4" />
         </button>
       )}
-      {role === 'ADMIN' && confirmCancel && (
+      {(role === 'ADMIN' || role === 'PARCEIRA') && confirmCancel && (
         <button onClick={() => confirmCancel(process)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Cancelar Processo">
           <XCircle className="h-4 w-4" />
         </button>
@@ -314,11 +323,18 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                 <thead className="bg-gray-50 dark:bg-gray-950/50 text-xs uppercase text-gray-500 dark:text-gray-400">
                   <tr>
                     <th className="px-6 py-3 font-medium">INSCRIÇÃO</th>
+                    {moduleName === 'admin' && (
+                      <>
+                        <th className="px-4 py-3 font-medium text-center">AMBIENTAL</th>
+                        <th className="px-4 py-3 font-medium text-center">ANUÊNCIA</th>
+                        <th className="px-4 py-3 font-medium text-center">PASSAGEM</th>
+                      </>
+                    )}
+                    <th className="px-6 py-3 font-medium">STATUS {moduleName !== 'admin' && 'ATUAL'}</th>
                     <th className="px-6 py-3 font-medium">PARCEIRA</th>
-                    <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
                     <th className="px-6 py-3 font-medium">MUNICÍPIO</th>
                     <th className="px-6 py-3 font-medium">REGIONAL</th>
-                    <th className="px-6 py-3 font-medium">SUPERINTENDÊNCIA</th>
+                    {moduleName !== 'admin' && <th className="px-6 py-3 font-medium">SUPERINTENDÊNCIA</th>}
                     <th className="px-6 py-3 font-medium">SLA</th>
                     <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
                   </tr>
@@ -331,15 +347,46 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       className="hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">{item.inscricao}</td>
-                      <td className="px-6 py-4">{item.parceira}</td>
+                      {moduleName === 'admin' && (
+                        <>
+                          <td className="px-4 py-4 text-center">
+                            <div className="flex justify-center">
+                              {item.pendenciaAmbiental ? (
+                                <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center"><div className="w-1.5 h-2.5 border-b-2 border-r-2 border-white transform rotate-45 -translate-y-0.5"></div></div>
+                              ) : (
+                                <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm"></div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <div className="flex justify-center">
+                              {item.pendenciaAnuencia ? (
+                                <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center"><div className="w-1.5 h-2.5 border-b-2 border-r-2 border-white transform rotate-45 -translate-y-0.5"></div></div>
+                              ) : (
+                                <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm"></div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <div className="flex justify-center">
+                              {item.pendenciaTravessia ? (
+                                <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center"><div className="w-1.5 h-2.5 border-b-2 border-r-2 border-white transform rotate-45 -translate-y-0.5"></div></div>
+                              ) : (
+                                <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm"></div>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
                       <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${statusColors[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
                           {item.status}
                         </span>
                       </td>
+                      <td className="px-6 py-4">{item.parceira}</td>
                       <td className="px-6 py-4">{item.municipio}</td>
                       <td className="px-6 py-4">{item.regional}</td>
-                      <td className="px-6 py-4">{item.superintendencia}</td>
+                      {moduleName !== 'admin' && <td className="px-6 py-4">{item.superintendencia}</td>}
                       <td className="px-6 py-4">
                         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${getSlaColor(item.sla)}`}>
                           {typeof item.sla === 'string' && item.sla.endsWith('d') ? item.sla : `${item.sla || 0}d`}
@@ -535,57 +582,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
                       <option value="">Selecione</option>
-                      <option value="GOINFRA">GOINFRA</option>
-                      <option value="DNIT">DNIT</option>
-                      <option value="TRIUNFO CONCEBRA">TRIUNFO CONCEBRA</option>
-                      <option value="ECOVIAS DO ARAGUAIA">ECOVIAS DO ARAGUAIA</option>
-                      <option value="ECOVIAS DO CERRADO">ECOVIAS DO CERRADO</option>
-                      <option value="ECO-050">ECO-050</option>
-                      <option value="EQTL">EQTL</option>
-                      <option value="EDP">EDP</option>
-                      <option value="ELETROBRAS/FURNAS">ELETROBRAS/FURNAS</option>
-                      <option value="RUMO">RUMO</option>
-                      <option value="VALEC/INFRA">VALEC/INFRA</option>
-                      <option value="VLI - CENTRO ATLANTICA">VLI - CENTRO ATLANTICA</option>
-                      <option value="BELO MONTE">BELO MONTE</option>
-                      <option value="BRENCO - ATVOS">BRENCO - ATVOS</option>
-                      <option value="STATE GRID">STATE GRID</option>
-                      <option value="ENERGISA">ENERGISA</option>
-                      <option value="ENGIE">ENGIE</option>
-                      <option value="TRANSENERGIA">TRANSENERGIA</option>
-                      <option value="GOIÁS TRANSMISSÃO S.A">GOIÁS TRANSMISSÃO S.A</option>
-                      <option value="GOIAS SUL GERAÇAO DE ENERGIA S/A">GOIAS SUL GERAÇAO DE ENERGIA S/A</option>
-                      <option value="PCH IRARA/CABRIÚVA – IRARA ENERGÉTICA">PCH IRARA/CABRIÚVA – IRARA ENERGÉTICA</option>
-                      <option value="PCH MAMBAÍ II">PCH MAMBAÍ II</option>
-                      <option value="CARNAÚBA ENERGIA S.A">CARNAÚBA ENERGIA S.A</option>
-                      <option value="VOTORANTIM METAIS">VOTORANTIM METAIS</option>
-                      <option value="TAESA">TAESA</option>
-                      <option value="GTE – GUARACIABA TRANSMISSORA DE ENERGIA S A">GTE – GUARACIABA TRANSMISSORA DE ENERGIA S A</option>
-                      <option value="SEFAC">SEFAC</option>
-                      <option value="GUARACIABA TRANSMISSORA DE ENERGIA">GUARACIABA TRANSMISSORA DE ENERGIA</option>
-                      <option value="NORTE BRASIL TRANSMISSORA">NORTE BRASIL TRANSMISSORA</option>
-                      <option value="PARANAÍBA TRANSMISSORA DE ENERGIA S.A">PARANAÍBA TRANSMISSORA DE ENERGIA S.A</option>
-                      <option value="ESSENTIA ENERGIA">ESSENTIA ENERGIA</option>
-                      <option value="NEOENERGIA">NEOENERGIA</option>
-                      <option value="VSBTE - VALE DO SÃO BARTOLOMEU">VSBTE - VALE DO SÃO BARTOLOMEU</option>
-                      <option value="IEM - INTERLIGAÇÃO ELETRICA DO MADEIRA S.A">IEM - INTERLIGAÇÃO ELETRICA DO MADEIRA S.A</option>
-                      <option value="BP BIOENERGIA ITUMBIARA S.A">BP BIOENERGIA ITUMBIARA S.A</option>
-                      <option value="ITUMBIARA TRANSMISSORA DE ENERGIA S.A/STATE GRID">ITUMBIARA TRANSMISSORA DE ENERGIA S.A/STATE GRID</option>
-                      <option value="VIA CRISTAIS">VIA CRISTAIS</option>
-                      <option value="TECPAV ROTA VERDE">TECPAV ROTA VERDE</option>
-                      <option value="BRENTECH">BRENTECH</option>
-                      <option value="FLEGADO INDEVIDAMENTE">FLEGADO INDEVIDAMENTE</option>
-                      <option value="NAO SE APLICA">NAO SE APLICA</option>
-                      <option value="CATXERE">CATXERE</option>
-                      <option value="ESPORA ENERGÉTICA S.A">ESPORA ENERGÉTICA S.A</option>
-                      <option value="RIO VERDE S.A">RIO VERDE S.A</option>
-                      <option value="GERDAU AÇOS LONGOS S.A">GERDAU AÇOS LONGOS S.A</option>
-                      <option value="CHESP">CHESP</option>
-                      <option value="KINROSS MINERAÇÃO">KINROSS MINERAÇÃO</option>
-                      <option value="INTEGRAÇÃO TRANSMISSORA DE ENERGIA">INTEGRAÇÃO TRANSMISSORA DE ENERGIA</option>
-                      <option value="FIRMINÓPOLIS TRANSMISSORA">FIRMINÓPOLIS TRANSMISSORA</option>
-                      <option value="AUREN ENERGIA">AUREN ENERGIA</option>
-                      <option value="LAGO AZUL TRANSMISSORA">LAGO AZUL TRANSMISSORA</option>
+                      {CONCESSIONARIAS.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
                   <div>

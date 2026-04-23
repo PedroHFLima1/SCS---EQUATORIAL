@@ -8,6 +8,7 @@ import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, 
 import Papa from 'papaparse';
 import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
+import { CONCESSIONARIAS } from '@/lib/constants';
 
 const statusColors: Record<string, string> = {
   'NOVO': 'bg-blue-100 text-blue-700',
@@ -216,7 +217,7 @@ export default function AdminPage() {
       result = result.filter(p => p.projeto.toLowerCase().includes(searchProjeto.toLowerCase()));
     }
     if (statusFilter !== 'Todas as Fases') {
-      result = result.filter(p => p.status === statusFilter);
+      result = result.filter(p => (p.statusInscricao || p.status) === statusFilter || p.status === statusFilter);
     }
     if (concessionariaFilter !== 'Todas') {
       result = result.filter(p => p.concessionaria === concessionariaFilter);
@@ -720,11 +721,11 @@ export default function AdminPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas as Fases</option>
-                  <option>NOVO</option>
-                  <option>EM ANÁLISE</option>
-                  <option>CORREÇÃO</option>
-                  <option>PROTOCOLADO</option>
-                  <option>FINALIZADO</option>
+                  <option>NÃO SE APLICA</option>
+                  <option>NÃO INICIADO</option>
+                  <option>EM ANDAMENTO</option>
+                  <option>APROVADO</option>
+                  <option>CANCELADO</option>
                 </select>
               </div>
               <div>
@@ -735,11 +736,9 @@ export default function AdminPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas</option>
-                  <option>Equatorial MA</option>
-                  <option>Equatorial PA</option>
-                  <option>Equatorial PI</option>
-                  <option>Equatorial AL</option>
-                  <option>Equatorial GO</option>
+                  {CONCESSIONARIAS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -773,6 +772,7 @@ export default function AdminPage() {
           <DrillDownTable 
             processes={filteredAudit} 
             role="ADMIN" 
+            moduleName="admin"
             openTreatment={openEditProtocol} 
             confirmCancel={(process) => confirmCancelProject(process.id)} 
           />
@@ -1138,6 +1138,18 @@ export default function AdminPage() {
                   <option value="CORREÇÃO">CORREÇÃO</option>
                   <option value="PROTOCOLADO">PROTOCOLADO</option>
                   <option value="FINALIZADO">FINALIZADO</option>
+                  <option value="APROVADO">APROVADO</option>
+                  <option value="CANCELADO">CANCELADO</option>
+                  <option value="NÃO INICIADO">NÃO INICIADO</option>
+                  <option value="NÃO SE APLICA">NÃO SE APLICA</option>
+                  <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+                  <option value="ATENDIDO">ATENDIDO</option>
+                  <option value="NEGADO">NEGADO</option>
+                  <option value="DUP">DUP</option>
+                  <option value="EM ESTUDO">EM ESTUDO</option>
+                  <option value="TAXA">TAXA</option>
+                  <option value="EM CORREÇÃO">EM CORREÇÃO</option>
+                  <option value="EM ANDAMENTO CONCESSIONÁRIA">EM ANDAMENTO CONCESSIONÁRIA</option>
                 </select>
               </div>
 
@@ -1174,12 +1186,10 @@ export default function AdminPage() {
                   onChange={(e) => setEditFormData({...editFormData, concessionaria: e.target.value})}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
-                  <option value="Equatorial MA">Equatorial MA</option>
-                  <option value="Equatorial PA">Equatorial PA</option>
-                  <option value="Equatorial PI">Equatorial PI</option>
-                  <option value="Equatorial AL">Equatorial AL</option>
-                  <option value="Equatorial GO">Equatorial GO</option>
-                  <option value="Equatorial RS">Equatorial RS</option>
+                  <option value="">Selecione</option>
+                  {CONCESSIONARIAS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
               </div>
             </div>
