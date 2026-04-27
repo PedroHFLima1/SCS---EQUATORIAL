@@ -33,7 +33,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       socket.on('notification-received', (notification: any) => {
         const newNotification: Notification = {
           ...notification,
-          timestamp: new Date(notification.timestamp),
+          id: notification.id || Math.random().toString(36).substring(2, 9),
+          read: notification.read || false,
+          timestamp: notification.timestamp ? new Date(notification.timestamp) : new Date(),
         };
         setNotifications(prev => [newNotification, ...prev]);
       });

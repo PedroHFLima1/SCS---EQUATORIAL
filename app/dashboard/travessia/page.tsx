@@ -9,15 +9,6 @@ import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
 import { CONCESSIONARIAS } from '@/lib/constants';
 
-const statusColors: Record<string, string> = {
-  'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
-  'TRIAGEM': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  'CORREÇÃO': 'bg-orange-100 text-orange-700 border-orange-200',
-  'PROTOCOLADO': 'bg-purple-100 text-purple-700 border-purple-200',
-  'APROVADO': 'bg-green-100 text-green-700 border-green-200',
-  'CANCELADO': 'bg-gray-100 text-gray-600 border-gray-300',
-};
-
 const getSlaColor = (sla: number | string) => {
   const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
   if (days <= 2) return 'bg-green-100 text-green-700 border-green-200';
@@ -194,7 +185,11 @@ export default function TravessiaPage() {
           }),
         });
 
-        if (!res.ok) throw new Error('Failed to update process');
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          console.error(errorData.details);
+          throw new Error('Failed to update process');
+        }
         
         const updatedProcesses = await res.json();
 
@@ -405,6 +400,7 @@ export default function TravessiaPage() {
                         <option>NÃO SE APLICA</option>
                         <option>NÃO INICIADO</option>
                         <option>EM ANDAMENTO</option>
+                        <option>PROTOCOLADO</option>
                         <option>APROVADO</option>
                         <option>CANCELADO</option>
                       </>

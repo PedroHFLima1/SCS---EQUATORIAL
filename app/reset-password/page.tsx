@@ -17,7 +17,20 @@ function ResetPasswordForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
-    // Check if we have the access_token in the URL hash (Supabase default behavior)
+    const handleCodeExchange = async () => {
+      const code = searchParams.get('code');
+      if (code) {
+        // Exchange code for session using PKCE
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          setError('O código de redefinição é inválido ou expirou.');
+        }
+      }
+    };
+
+    handleCodeExchange();
+
+    // Check if we have the access_token in the URL hash (Supabase implicit flow)
     // or if we have a code in the search params
     const hash = window.location.hash;
     const code = searchParams.get('code');

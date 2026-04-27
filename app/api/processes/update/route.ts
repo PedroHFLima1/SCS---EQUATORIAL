@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -6,16 +7,23 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { id, module, partner, status, protocol, sla, concessionaria, user } = body;
     
-    const updatedProcess = await prisma.process.update({
-      where: { id },
-      data: { 
+    const process = await prisma.process.findUnique({ where: { id } });
+    
+    let dataToUpdate: any = { 
         module,
         partner,
         status,
         protocol,
-        sla: sla !== undefined && sla !== null ? String(sla) : null,
         concessionaria
-      },
+    };
+    
+    if (process && process.status !== status) {
+        dataToUpdate.statusUpdatedAt = new Date();
+    }
+    
+    const updatedProcess = await prisma.process.update({
+      where: { id },
+      data: dataToUpdate,
     });
 
     // Create movement record
@@ -27,9 +35,17 @@ export async function POST(request: Request) {
       }
     });
 
+    try {
+      fetch('http://127.0.0.1:3000/api/ws/emit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'process-updated', data: updatedProcess })
+      }).catch(err => console.error('WS emit error:', err));
+    } catch (err) {}
+
     return NextResponse.json(updatedProcess);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to update process' }, { status: 500 });
+  } catch (error: any) {
+    console.error('SERVER ERROR UPDATE:', error);
+    return NextResponse.json({ error: 'Failed to update process', details: error.message }, { status: 500 });
   }
 }

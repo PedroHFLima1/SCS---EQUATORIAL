@@ -193,7 +193,7 @@ export async function toggleUserStatus(userId: string, currentStatus: UserStatus
   }
 }
 
-export async function requestPasswordReset(email: string) {
+export async function requestPasswordReset(email: string, origin?: string) {
   if (!supabaseServiceRoleKey) {
     return { error: 'Chave de serviço do Supabase não configurada.' };
   }
@@ -210,21 +210,12 @@ export async function requestPasswordReset(email: string) {
       return { error: 'Usuário não encontrado.' };
     }
 
-    // 2. Check 60 days limit
-    if (profiles.last_password_reset) {
-      const lastReset = new Date(profiles.last_password_reset);
-      const now = new Date();
-      const diffTime = Math.abs(now.getTime() - lastReset.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays < 60) {
-        return { error: `Você só pode redefinir sua senha uma vez a cada 60 dias. Faltam ${60 - diffDays} dias.` };
-      }
-    }
+    // 2. Use origin if provided, else fallback
+    const siteUrl = origin || process.env.NEXT_PUBLIC_SITE_URL || 'https://ais-dev-eigsujcpqbfctefw4sbxuo-163080127208.us-east1.run.app';
 
     // 3. Send reset email
     const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/reset-password`,
+      redirectTo: `${siteUrl}/reset-password`,
     });
 
     if (resetError) {

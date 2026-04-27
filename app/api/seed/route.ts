@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -51,9 +52,24 @@ export async function GET() {
     let count = 0;
     for (const p of processes) {
       await prisma.process.upsert({
-        where: { inscricao: p.inscricao },
+        where: { 
+          idSolicitacao_projeto: {
+            idSolicitacao: p.inscricao,
+            projeto: p.projeto
+          }
+        },
         update: {},
-        create: p,
+        create: {
+          idSolicitacao: p.inscricao,
+          inscricao: p.inscricao,
+          projeto: p.projeto,
+          concessionaria: p.concessionaria,
+          partner: p.partner,
+          status: p.status,
+          protocol: p.protocol,
+          sla: p.sla,
+          module: p.module
+        },
       });
       count++;
     }

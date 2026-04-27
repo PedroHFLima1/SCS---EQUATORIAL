@@ -35,78 +35,13 @@ app.prepare().then(() => {
     });
   });
 
-  // API Routes for real-time updates
-  server.post('/api/processes/update-status', express.json(), async (req, res) => {
-    const { id, status, user } = req.body;
-    try {
-      const updatedProcess = await prisma.process.update({
-        where: { id },
-        data: { status },
-      });
-
-      // Create movement record
-      await prisma.movement.create({
-        data: {
-          processId: id,
-          description: `Status alterado para ${status}`,
-          user: user || 'Sistema',
-        }
-      });
-
-      // Emit event to all clients
-      io.emit('process-updated', updatedProcess);
-      
-      // Create notification
-      const notification = await prisma.notification.create({
-        data: {
-          title: 'Status Atualizado',
-          message: `O processo ${updatedProcess.inscricao} mudou para ${status}`,
-          type: 'info',
-          processId: updatedProcess.inscricao,
-        }
-      });
-      
-      io.emit('notification-received', notification);
-
-      res.json(updatedProcess);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to update process' });
+  // API Route for internal WS emission
+  server.post('/api/ws/emit', express.json(), (req, res) => {
+    const { event, data } = req.body;
+    if (event && data) {
+      io.emit(event, data);
     }
-  });
-
-  server.post('/api/processes/update', express.json(), async (req, res) => {
-    const { id, module, partner, status, protocol, sla, concessionaria, user } = req.body;
-    try {
-      const updatedProcess = await prisma.process.update({
-        where: { id },
-        data: { 
-          module,
-          partner,
-          status,
-          protocol,
-          sla: String(sla),
-          concessionaria
-        },
-      });
-
-      // Create movement record
-      await prisma.movement.create({
-        data: {
-          processId: id,
-          description: `Edição Administrativa: Status alterado para ${status}`,
-          user: user || 'Admin',
-        }
-      });
-
-      // Emit event to all clients
-      io.emit('process-updated', updatedProcess);
-
-      res.json(updatedProcess);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to update process' });
-    }
+    res.json({ success: true });
   });
 
   // Handle all other requests with Next.js

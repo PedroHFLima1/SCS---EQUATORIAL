@@ -3,20 +3,11 @@
 import { useState, useMemo } from 'react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench } from 'lucide-react';
+import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench, Download, MessageSquarePlus, Check } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
 import { useAuth } from '@/app/context/AuthContext';
-import { CONCESSIONARIAS } from '@/lib/constants';
-
-const statusColors: Record<string, string> = {
-  'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
-  'TRIAGEM': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  'CORREÇÃO': 'bg-orange-100 text-orange-700 border-orange-200',
-  'PROTOCOLADO': 'bg-purple-100 text-purple-700 border-purple-200',
-  'APROVADO': 'bg-green-100 text-green-700 border-green-200',
-  'CANCELADO': 'bg-gray-100 text-gray-600 border-gray-300',
-};
+import { CONCESSIONARIAS, STATUS_COLORS } from '@/lib/constants';
 
 const getSlaColor = (sla: number | string) => {
   const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
@@ -35,7 +26,7 @@ interface DrillDownTableProps {
 }
 
 export function DrillDownTable({ processes = [], role, moduleName = 'admin', openTreatment, handleSendEmail, confirmCancel }: DrillDownTableProps) {
-  const { company } = useAuth();
+  const { company, name: userName } = useAuth();
   const [selectedInscricao, setSelectedInscricao] = useState<string | null>(null);
   const [selectedProjeto, setSelectedProjeto] = useState<string | null>(null);
   
@@ -44,6 +35,23 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   
   // Protocol Modal State
   const [isProtocolModalOpen, setIsProtocolModalOpen] = useState(false);
+
+  const handleSaveObservacao = async (inscricao: string, projeto: string | null, observacao: string) => {
+    try {
+      if (!observacao.trim()) return;
+      await fetch('/api/processes/update-observation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inscricao,
+          user: userName || 'Sistema',
+          ...(projeto ? { projeto, observacaoProjeto: observacao } : { observacaoInscricao: observacao })
+        })
+      });
+    } catch (error) {
+      console.error('Failed to save observation', error);
+    }
+  };
   const [protocolForm, setProtocolForm] = useState({
     protocolo: '',
     concessionaria: '',
@@ -62,6 +70,27 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyInscricao, setHistoryInscricao] = useState<string>('');
+  const [historyActiveTab, setHistoryActiveTab] = useState<'historico' | 'observacoes'>('historico');
+
+  // Observation Modal State
+  const [obsModal, setObsModal] = useState<{isOpen: boolean, inscricao: string, projeto: string | null, type: string} | null>(null);
+  const [newObs, setNewObs] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+  };
+
+  const handleSubmitObservation = async () => {
+    if (!obsModal || !newObs.trim()) return;
+    await handleSaveObservacao(obsModal.inscricao, obsModal.projeto, newObs);
+    setNewObs('');
+    setObsModal(null);
+    showSuccess('Observação salva!');
+  };
 
   const handleBack = () => {
     if (selectedProjeto) {
@@ -95,6 +124,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           pendenciaAmbiental: p.pendenciaAmbiental,
           pendenciaAnuencia: p.pendenciaAnuencia,
           pendenciaTravessia: p.pendenciaTravessia,
+          observacaoInscricao: p.observacaoInscricao || '',
           firstProcess: { ...p, isLayer1: true }, // Keep reference to first process for actions, mark as layer1
           projetos: new Set()
         });
@@ -138,6 +168,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           superintendencia: p.superintendencia || '-',
           sla: p.sla,
           qtdCorrecoes,
+          observacaoProjeto: p.observacaoProjeto || '',
           process: p // Keep reference
         });
       }
@@ -205,6 +236,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
 
   const handleOpenHistory = async (inscricao: string) => {
     setHistoryInscricao(inscricao);
+    setHistoryActiveTab('historico');
     setIsHistoryModalOpen(true);
     setHistoryLoading(true);
     try {
@@ -235,7 +267,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           <Mail className="h-4 w-4" />
         </button>
       )}
-      {(role === 'ADMIN' || role === 'PARCEIRA') && confirmCancel && (
+      {role === 'ADMIN' && confirmCancel && (
         <button onClick={() => confirmCancel(process)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Cancelar Processo">
           <XCircle className="h-4 w-4" />
         </button>
@@ -293,6 +325,21 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         </Breadcrumb>
 
         <div className="flex items-center gap-2">
+          {!selectedInscricao && !selectedProjeto && (
+            <Button variant="outline" size="sm" className="gap-2 h-8 text-slate-700 dark:text-slate-300" onClick={() => {
+              const header = "Inscrição,Projeto,Concessionaria,Parceira,Status,Status Triagem,SLA,Observação Inscrição,Observação Projeto\n";
+              const rows = processes.map((p: any) => `${p.idSolicitacao || p.inscricao || ''},${p.projeto || ''},${p.concessionaria || ''},${p.parceiraProjeto || p.partner || ''},${p.status || ''},${p.statusTriagem || ''},${p.sla || ''},"${(p.observacaoInscricao || '').replace(/"/g, '""')}","${(p.observacaoProjeto || '').replace(/"/g, '""')}"`).join("\n");
+              const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `export_${moduleName}.csv`;
+              link.click();
+            }}>
+              <Download className="h-4 w-4" />
+              Exportar CSV
+            </Button>
+          )}
           {selectedProjeto && moduleName === 'travessia' && canCreateProtocol && (
             <Button size="sm" onClick={handleOpenProtocolModal} className="gap-2 h-8 bg-blue-600 hover:bg-blue-700 text-white">
               <Plus className="h-4 w-4" />
@@ -336,6 +383,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <th className="px-6 py-3 font-medium">REGIONAL</th>
                     {moduleName !== 'admin' && <th className="px-6 py-3 font-medium">SUPERINTENDÊNCIA</th>}
                     <th className="px-6 py-3 font-medium">SLA</th>
+                    <th className="px-6 py-3 font-medium w-48">OBSERVAÇÕES</th>
                     <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
                   </tr>
                 </thead>
@@ -351,35 +399,40 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                         <>
                           <td className="px-4 py-4 text-center">
                             <div className="flex justify-center">
-                              {item.pendenciaAmbiental ? (
-                                <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center"><div className="w-1.5 h-2.5 border-b-2 border-r-2 border-white transform rotate-45 -translate-y-0.5"></div></div>
-                              ) : (
-                                <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm"></div>
-                              )}
+                              {(() => {
+                                const needs = item.firstProcess.fluxoAmbiental?.toUpperCase() === 'SIM';
+                                if (!needs) return <span className="text-gray-400">-</span>;
+                                if (item.pendenciaAnuencia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-indigo-100 text-indigo-700">FILA ANUÊNCIA</span>;
+                                if (item.pendenciaAmbiental) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">EM ANÁLISE</span>;
+                                return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-800">CONCLUÍDO</span>;
+                              })()}
                             </div>
                           </td>
                           <td className="px-4 py-4 text-center">
                             <div className="flex justify-center">
-                              {item.pendenciaAnuencia ? (
-                                <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center"><div className="w-1.5 h-2.5 border-b-2 border-r-2 border-white transform rotate-45 -translate-y-0.5"></div></div>
-                              ) : (
-                                <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm"></div>
-                              )}
+                              {(() => {
+                                const needs = item.firstProcess.fluxoPassagem?.toUpperCase() === 'SIM';
+                                if (!needs) return <span className="text-gray-400">-</span>;
+                                if (item.pendenciaAnuencia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">EM ANÁLISE</span>;
+                                return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-800">CONCLUÍDO</span>;
+                              })()}
                             </div>
                           </td>
                           <td className="px-4 py-4 text-center">
                             <div className="flex justify-center">
-                              {item.pendenciaTravessia ? (
-                                <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center"><div className="w-1.5 h-2.5 border-b-2 border-r-2 border-white transform rotate-45 -translate-y-0.5"></div></div>
-                              ) : (
-                                <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm"></div>
-                              )}
+                              {(() => {
+                                const needs = item.firstProcess.fluxoTravessia?.toUpperCase() === 'SIM' || item.firstProcess.fluxoTravessiaLt?.toUpperCase() === 'SIM';
+                                if (!needs) return <span className="text-gray-400">-</span>;
+                                if (item.pendenciaAnuencia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-indigo-100 text-indigo-700">FILA ANUÊNCIA</span>;
+                                if (item.pendenciaTravessia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">EM ANÁLISE</span>;
+                                return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-800">CONCLUÍDO</span>;
+                              })()}
                             </div>
                           </td>
                         </>
                       )}
                       <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${statusColors[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
                           {item.status}
                         </span>
                       </td>
@@ -391,6 +444,24 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${getSlaColor(item.sla)}`}>
                           {typeof item.sla === 'string' && item.sla.endsWith('d') ? item.sla : `${item.sla || 0}d`}
                         </span>
+                      </td>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col gap-2 items-start">
+                          {item.observacaoInscricao ? (
+                            <span className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2" title={item.observacaoInscricao}>
+                              &quot;{item.observacaoInscricao}&quot;
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
+                          )}
+                          <button
+                            onClick={() => setObsModal({ isOpen: true, inscricao: item.inscricao, projeto: null, type: 'Inscrição' })}
+                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 text-[10px] px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium border border-blue-100 dark:border-blue-800/50"
+                          >
+                            <MessageSquarePlus className="w-3 h-3" />
+                            Adicionar Obs
+                          </button>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         {renderAcoes(item.firstProcess)}
@@ -441,6 +512,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     {moduleName === 'travessia' && (
                       <th className="px-6 py-3 font-medium">QTD CORREÇÕES</th>
                     )}
+                    <th className="px-6 py-3 font-medium w-48">OBSERVAÇÕES</th>
+                    <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -458,7 +531,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">{item.projeto}</td>
                       <td className="px-6 py-4">{item.parceira}</td>
                       <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
                           {item.status}
                         </span>
                       </td>
@@ -482,6 +555,27 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       {moduleName === 'travessia' && (
                         <td className="px-6 py-4 font-medium">{item.qtdCorrecoes}</td>
                       )}
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col gap-2 items-start">
+                          {item.observacaoProjeto ? (
+                            <span className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2" title={item.observacaoProjeto}>
+                              &quot;{item.observacaoProjeto}&quot;
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
+                          )}
+                          <button
+                            onClick={() => setObsModal({ isOpen: true, inscricao: item.process.inscricao || item.process.idSolicitacao, projeto: item.projeto, type: 'Projeto' })}
+                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 text-[10px] px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium border border-blue-100 dark:border-blue-800/50"
+                          >
+                            <MessageSquarePlus className="w-3 h-3" />
+                            Adicionar Obs
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {renderAcoes({ ...item.process, isLayer1: false })}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -523,7 +617,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       <td className="px-6 py-4">{item.concessionaria}</td>
                       <td className="px-6 py-4">{item.parceira}</td>
                       <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColors[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
                           {item.status}
                         </span>
                       </td>
@@ -568,7 +662,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <input
                       type="text"
                       required
-                      value={protocolForm.protocolo}
+                      value={protocolForm.protocolo || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
@@ -577,7 +671,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Concessionária</label>
                     <select
                       required
-                      value={protocolForm.concessionaria}
+                      value={protocolForm.concessionaria || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, concessionaria: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
@@ -593,7 +687,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       type="text"
                       required
                       disabled={role === 'PARCEIRA'}
-                      value={protocolForm.parceira}
+                      value={protocolForm.parceira || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
                     />
@@ -602,7 +696,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Status Atual</label>
                     <select
                       required
-                      value={protocolForm.status}
+                      value={protocolForm.status || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
@@ -618,7 +712,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <input
                       type="date"
                       required
-                      value={protocolForm.dataProtocolo}
+                      value={protocolForm.dataProtocolo || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
@@ -628,7 +722,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <input
                       type="text"
                       required
-                      value={protocolForm.valor}
+                      value={protocolForm.valor || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, valor: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
@@ -638,7 +732,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <input
                       type="date"
                       required
-                      value={protocolForm.dataVencimento}
+                      value={protocolForm.dataVencimento || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, dataVencimento: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
@@ -647,7 +741,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
                     <select
                       required
-                      value={protocolForm.tipo}
+                      value={protocolForm.tipo || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, tipo: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
@@ -664,7 +758,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <input
                       type="text"
                       required
-                      value={protocolForm.rodovia}
+                      value={protocolForm.rodovia || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
@@ -674,7 +768,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <input
                       type="text"
                       required
-                      value={protocolForm.km}
+                      value={protocolForm.km || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
@@ -704,75 +798,216 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
 
       {/* History Modal */}
       {isHistoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-lg bg-white dark:bg-gray-900 shadow-xl border dark:border-gray-800 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b dark:border-gray-800 p-4 shrink-0">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Histórico Completo: {historyInscricao}</h3>
-              <button onClick={() => setIsHistoryModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-3xl rounded-xl bg-gray-50 dark:bg-gray-950 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shrink-0 shadow-sm z-10">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-500" />
+                Inscrição: {historyInscricao}
+              </h3>
+              <button onClick={() => setIsHistoryModalOpen(false)} className="rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto">
+            
+            <div className="flex border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 shrink-0">
+              <button
+                className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${historyActiveTab === 'historico' ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                onClick={() => setHistoryActiveTab('historico')}
+              >
+                Linha do Tempo
+              </button>
+              <button
+                className={`py-3 px-4 font-medium text-sm border-b-2 transition-colors ${historyActiveTab === 'observacoes' ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                onClick={() => setHistoryActiveTab('observacoes')}
+              >
+                Observações
+              </button>
+            </div>
+
+            <div className="p-8 overflow-y-auto relative">
               {historyLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+                <div className="flex justify-center py-12">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent shadow-md"></div>
                 </div>
               ) : historyData.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">Nenhum histórico encontrado.</div>
+                <div className="text-center py-12 text-gray-500">Nenhum histórico encontrado.</div>
               ) : (
-                <div className="relative border-l-2 border-gray-200 dark:border-gray-700 ml-3 space-y-8">
-                  {historyData.map((movement, idx) => {
-                    // Determine icon and color based on description
-                    let Icon = Settings;
-                    let colorClass = 'bg-blue-500';
-                    let bgClass = 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400';
-                    
-                    if (movement.description.toLowerCase().includes('criado') || movement.description.toLowerCase().includes('importado')) {
-                      Icon = FileText;
-                      colorClass = 'bg-purple-500';
-                      bgClass = 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400';
-                    } else if (movement.description.toLowerCase().includes('correção')) {
-                      Icon = Wrench;
-                      colorClass = 'bg-orange-500';
-                      bgClass = 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400';
-                    } else if (movement.description.toLowerCase().includes('aprovad')) {
-                      Icon = MessageSquare;
-                      colorClass = 'bg-green-500';
-                      bgClass = 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400';
-                    }
+                <div className="flex flex-col gap-8 w-full">
+                  {historyActiveTab === 'observacoes' ? (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-5 border border-indigo-100 dark:border-indigo-800/50">
+                      <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2 mb-4 uppercase tracking-wider">
+                        <MessageSquare className="h-4 w-4" />
+                        Lista de Observações
+                      </h4>
+                      <div className="space-y-3">
+                        {historyData.filter((m) => m.description.toLowerCase().includes('observação')).length === 0 ? (
+                            <div className="text-gray-500 text-sm py-4 text-center">Nenhuma observação registrada.</div>
+                        ) : (
+                            historyData
+                              .filter((m) => m.description.toLowerCase().includes('observação'))
+                              .map((obs, idx) => {
+                                // Extract actual text
+                                let text = obs.description;
+                                if (text.startsWith('[OBSERVAÇÃO')) {
+                                   const endBracketIndex = text.indexOf(']');
+                                   if (endBracketIndex !== -1) {
+                                      text = text.substring(endBracketIndex + 1).trim();
+                                   }
+                                }
 
-                    return (
-                      <div key={idx} className="relative pl-6">
-                        <div className={`absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full ${colorClass} ring-4 ring-white dark:ring-gray-900`}>
-                          <Icon className="h-2.5 w-2.5 text-white" />
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          {format(new Date(movement.date), 'dd/MM/yyyy HH:mm')}
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center mb-2 gap-2">
-                          <div className="flex items-center">
-                            <div className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300 mr-2">
-                              {movement.user.substring(0, 2).toUpperCase()}
-                            </div>
-                            <span className="text-sm font-medium text-gray-900 dark:text-gray-200">{movement.user}</span>
-                          </div>
-                          <span className="hidden sm:inline text-gray-300 dark:text-gray-600">|</span>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Projeto: <span className="font-bold">{movement.projeto}</span> ({movement.module})
-                          </span>
-                        </div>
-                        <div className="rounded-md bg-gray-50 dark:bg-gray-800 p-3 text-sm text-gray-700 dark:text-gray-300">
-                          {movement.description}
-                        </div>
+                                return (
+                                  <div key={idx} className="bg-white dark:bg-gray-900 rounded-lg p-4 shadow-sm border border-indigo-50 dark:border-indigo-800/30">
+                                    <div className="text-xs text-indigo-500 dark:text-indigo-400 font-medium mb-1">
+                                      {obs.user} &bull; {format(new Date(obs.date), "dd MMM yyyy, 'às' HH:mm")}
+                                      {obs.description.includes('PROJETO') && ` • Projeto ${obs.projeto || ''}`}
+                                    </div>
+                                    <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                                      {text}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ) : (
+                    <div className="relative border-l-2 border-slate-200 dark:border-slate-800 ml-4 space-y-10 before:absolute before:top-0 before:-left-[2px] before:bottom-0 before:w-[2px] before:bg-gradient-to-b before:from-blue-500 before:to-transparent">
+                      {historyData.map((movement, idx) => {
+                        let Icon = Settings;
+                        let colorClass = 'bg-slate-500';
+                        let ringClass = 'ring-slate-100 dark:ring-slate-900';
+                        
+                        const isObs = movement.description.toLowerCase().includes('observação');
+                        const desc = movement.description.toLowerCase();
+                        
+                        if (isObs) {
+                          Icon = MessageSquare;
+                          colorClass = 'bg-indigo-500';
+                          ringClass = 'ring-indigo-100 dark:ring-indigo-900/30';
+                        } else if (desc.includes('criado') || desc.includes('importado')) {
+                          Icon = FileText;
+                          colorClass = 'bg-blue-600';
+                          ringClass = 'ring-blue-100 dark:ring-blue-900/30';
+                        } else if (desc.includes('correção')) {
+                          Icon = Wrench;
+                          colorClass = 'bg-orange-500';
+                          ringClass = 'ring-orange-100 dark:ring-orange-900/30';
+                        } else if (desc.includes('aprovad')) {
+                          Icon = Edit;
+                          colorClass = 'bg-emerald-500';
+                          ringClass = 'ring-emerald-100 dark:ring-emerald-900/30';
+                        }
+
+                        const displayDesc = isObs 
+                            ? `Inclusão de observação ${desc.includes('projeto') ? 'no projeto' : 'na inscrição'}`
+                            : movement.description;
+
+                        return (
+                          <div key={idx} className="relative pl-8 group">
+                            <div className={`absolute -left-[11px] top-1 flex h-5 w-5 items-center justify-center rounded-full ${colorClass} ring-4 ${ringClass} transition-transform group-hover:scale-110 shadow-sm`}>
+                              <Icon className="h-3 w-3 text-white" />
+                            </div>
+                            <div className="bg-white dark:bg-gray-900 rounded-xl p-5 shadow-sm border border-slate-100 dark:border-slate-800/60 hover:shadow-md transition-shadow">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                  {movement.user.substring(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">{movement.user}</span>
+                                  <span className="block text-xs font-medium text-blue-600 dark:text-blue-400">
+                                    Projeto: {movement.projeto || 'N/A'} {movement.module && `(${movement.module})`}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-800">
+                                {format(new Date(movement.date), "dd MMM yyyy, 'às' HH:mm")}
+                              </div>
+                            </div>
+                            <div className={`text-sm leading-relaxed ${isObs ? 'text-indigo-800 dark:text-indigo-300 font-medium italic' : 'text-slate-700 dark:text-slate-300'}`}>
+                              {displayDesc}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Observation Modal */}
+      {obsModal?.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-950 shadow-2xl overflow-hidden flex flex-col border border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 p-4 shrink-0">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-indigo-600 dark:text-indigo-500" />
+                Adicionar Observação
+              </h3>
+              <button onClick={() => { setObsModal(null); setNewObs(''); }} className="rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">
+                Referente: <span className="text-gray-900 dark:text-white font-bold">{obsModal.type} {obsModal.inscricao}</span>
+                {obsModal.projeto && <span className="block mt-1">Projeto: <span className="text-gray-900 dark:text-white font-bold">{obsModal.projeto}</span></span>}
+              </p>
+              <textarea
+                value={newObs}
+                onChange={(e) => setNewObs(e.target.value)}
+                placeholder="Digite sua observação aqui..."
+                className="w-full h-32 p-3 text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none transition-all"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmitObservation();
+                  }
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-2 italic">Dica: Pressione Enter para salvar. Shift + Enter para nova linha.</p>
+            </div>
+            <div className="p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 flex justify-end gap-2">
+              <button
+                onClick={() => { setObsModal(null); setNewObs(''); }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSubmitObservation}
+                disabled={!newObs.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg shadow-sm transition-colors flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Toast */}
+      <AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-4 right-4 z-[70] bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2"
+          >
+            <Check className="w-5 h-5" />
+            <span className="font-medium text-sm">{successMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

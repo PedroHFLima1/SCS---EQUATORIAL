@@ -118,6 +118,8 @@ export async function aprovarTriagem(id: string, changes: any, user: string) {
         pendenciaAnuencia: changes.pendenciaAnuencia,
         pendenciaTravessia: changes.pendenciaTravessia,
         pendenciaAmbiental: changes.pendenciaAmbiental,
+        statusInscricao: 'NÃO INICIADO',
+        status: 'NÃO INICIADO',
       }
     });
 

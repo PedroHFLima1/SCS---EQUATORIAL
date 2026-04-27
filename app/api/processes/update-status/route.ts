@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -6,7 +7,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { id, inscricao, projeto, isLayer1, module, status, user, justification, protocol, valor, dataVencimento, tipo, rodovia, km } = body;
     
-    let processesToUpdate = [];
+    let processesToUpdate: any[] = [];
     
     if (id) {
       const process = await prisma.process.findUnique({ where: { id } });
@@ -49,9 +50,22 @@ export async function POST(request: Request) {
       let dataToUpdate: any = {};
       
       if (isLayer1) {
-        dataToUpdate.statusInscricao = status;
+        if (process.statusInscricao !== status) {
+          dataToUpdate.statusInscricao = status;
+          dataToUpdate.statusUpdatedAt = new Date();
+        } else {
+          dataToUpdate.statusInscricao = status;
+        }
       } else {
-        dataToUpdate.status = status;
+        if (process.status !== status) {
+          dataToUpdate.status = status;
+          dataToUpdate.statusUpdatedAt = new Date();
+        } else {
+          dataToUpdate.status = status;
+        }
+        if (module === 'anuencia') dataToUpdate.statusAnuencia = status;
+        if (module === 'ambiental') dataToUpdate.statusAmbiental = status;
+        if (module === 'travessia') dataToUpdate.statusTravessia = status;
       }
       
       if (protocol !== undefined) dataToUpdate.protocol = protocol;
@@ -94,12 +108,35 @@ export async function POST(request: Request) {
         }
       });
       
+      // Push WS events
+      try {
+        fetch('http://127.0.0.1:3000/api/ws/emit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'process-updated', data: updatedProcess })
+        }).catch(err => console.error('WS emit error:', err));
+        
+        fetch('http://127.0.0.1:3000/api/ws/emit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'notification-received', data: {
+            id: Math.random().toString(36).substring(2, 9),
+            title: `Status ${isLayer1 ? 'da Inscrição ' : ''}Atualizado`,
+            message: `O processo ${updatedProcess.inscricao} mudou para ${status}`,
+            type: 'info',
+            timestamp: new Date().toISOString(),
+            read: false,
+            processId: updatedProcess.inscricao || '',
+          }})
+        }).catch(err => console.error('WS emit error:', err));
+      } catch (err) {}
+      
       updatedProcesses.push(updatedProcess);
     }
 
     return NextResponse.json(updatedProcesses);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to update process' }, { status: 500 });
+  } catch (error: any) {
+    console.error('SERVER ERROR UPDATE-STATUS:', String(error));
+    return NextResponse.json({ error: 'Failed to update process', details: String(error) }, { status: 500 });
   }
 }

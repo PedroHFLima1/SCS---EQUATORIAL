@@ -54,6 +54,10 @@ model Process {
   statusInscricao     String   @default("NÃO INICIADO")
   statusProjeto       String   @default("NÃO INICIADO")
   status              String   @default("NOVO")
+  statusUpdatedAt     DateTime @default(now())
+  statusAnuencia      String?
+  statusAmbiental     String?
+  statusTravessia     String?
   protocol            String?
   valor               String?
   dataVencimento      String?
@@ -62,6 +66,8 @@ model Process {
   km                  String?
   sla                 String?
   module              String   @default("travessia")
+  observacaoInscricao String?  @default("")
+  observacaoProjeto   String?  @default("")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   movements           Movement[]

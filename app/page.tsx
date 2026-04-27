@@ -22,6 +22,9 @@ export default function LoginPage() {
   const [forgotMessage, setForgotMessage] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [isForgotLoading, setIsForgotLoading] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'code'>('email');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
 
   const [isManualLogin, setIsManualLogin] = useState(false);
 
@@ -39,7 +42,14 @@ export default function LoginPage() {
     if (isManualLogin && user && !authLoading) {
       if (role === 'ADMIN') {
         router.push('/dashboard/admin');
+      } else if (role === 'GESTOR_AMBIENTAL') {
+        router.push('/dashboard/ambiental');
+      } else if (role === 'GESTOR_ANUENCIA') {
+        router.push('/dashboard/anuencia');
+      } else if (role === 'GESTOR_TRAVESSIA') {
+        router.push('/dashboard/travessia');
       } else {
+        // Fallback or for PARCEIRA
         router.push('/dashboard/travessia');
       }
     }
@@ -79,14 +89,122 @@ export default function LoginPage() {
 
     try {
       const { requestPasswordReset } = await import('@/app/actions/users');
-      const result = await requestPasswordReset(forgotEmail);
+      const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const result = await requestPasswordReset(forgotEmail, origin);
       
       if (result.error) {
         setForgotError(result.error);
       } else {
-        setForgotMessage('Verifique seu e-mail para redefinir sua senha.');
-        setForgotEmail('');
+        setForgotMessage('Verifique seu e-mail para obter o código ou link de redefinição.');
+        setForgotStep('code');
       }
+    } catch (err) {
+      setForgotError('Ocorreu um erro inesperado.');
+    } finally {
+      setIsForgotLoading(false);
+    }
+  };
+
+  const handleResetWithCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setIsForgotLoading(true);
+
+    try {
+      if (forgotNewPassword.length < 6) {
+        setForgotError('A senha deve ter pelo menos 6 caracteres.');
+        return;
+      }
+
+      let parsedToken = forgotCode.trim();
+      let type: 'recovery' | 'magiclink' = 'recovery';
+
+      // Verifica se o usuário colou a URL inteira do tipo localhost:3000/#access_token=... ou um token gigante (hashed)
+      // O Supabase às vezes gera um link com `token=...` ou usa Implicit Flow com `#access_token=...`
+      if (parsedToken.includes('access_token=')) {
+        const urlParams = new URLSearchParams(
+          parsedToken.includes('#') ? parsedToken.substring(parsedToken.indexOf('#') + 1) : parsedToken
+        );
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+        
+        if (accessToken && refreshToken) {
+          // Se colou o link com session, fazemos set da session direto
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (sessionError) {
+            setForgotError('Link inválido ou expirado.');
+            return;
+          }
+          
+          const { error: updateError } = await supabase.auth.updateUser({
+            password: forgotNewPassword
+          });
+
+          if (updateError) {
+            setForgotError(updateError.message);
+            return;
+          }
+
+          setForgotMessage('Senha redefinida com sucesso! Redirecionando...');
+          await supabase.auth.signOut();
+          
+          setTimeout(() => {
+            setIsForgotModalOpen(false);
+            setForgotStep('email');
+            setForgotEmail('');
+            setForgotCode('');
+            setForgotNewPassword('');
+            setForgotMessage('');
+          }, 3000);
+          return;
+        }
+      } else if (parsedToken.includes('token=')) {
+         const urlParams = new URLSearchParams(
+          parsedToken.includes('?') ? parsedToken.substring(parsedToken.indexOf('?') + 1) : parsedToken
+        );
+        const tokenToken = urlParams.get('token');
+        if (tokenToken) {
+           parsedToken = tokenToken;
+        }
+      }
+
+      // Verificação normal de Token/OTP (6 dígitos) ou Token Hash
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: forgotEmail,
+        token: parsedToken,
+        type: 'recovery'
+      });
+
+      if (verifyError) {
+        setForgotError('Código ou link inválido ou expirado.');
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: forgotNewPassword
+      });
+
+      if (updateError) {
+        setForgotError(updateError.message);
+        return;
+      }
+
+      setForgotMessage('Senha redefinida com sucesso! Redirecionando...');
+      await supabase.auth.signOut();
+      
+      setTimeout(() => {
+        setIsForgotModalOpen(false);
+        setForgotStep('email');
+        setForgotEmail('');
+        setForgotCode('');
+        setForgotNewPassword('');
+        setForgotMessage('');
+      }, 3000);
+      
     } catch (err) {
       setForgotError('Ocorreu um erro inesperado.');
     } finally {
@@ -240,10 +358,12 @@ export default function LoginPage() {
               </div>
               <h3 className="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">Redefinir Senha</h3>
               <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
-                Informe seu e-mail corporativo para receber um link de redefinição de senha.
+                {forgotStep === 'email' 
+                  ? 'Informe seu e-mail corporativo para receber um código ou link de redefinição de senha.'
+                  : 'Insira o código de 6 dígitos que chegou no email. Se chegou um link como localhost, copie o link inteiro e cole-o aqui.'}
               </p>
 
-              <form onSubmit={handleForgotPassword} className="space-y-4">
+              <form onSubmit={forgotStep === 'email' ? handleForgotPassword : handleResetWithCode} className="space-y-4">
                 {forgotError && (
                   <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-300">
                     {forgotError}
@@ -255,18 +375,47 @@ export default function LoginPage() {
                   </div>
                 )}
                 
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">E-mail</label>
-                  <input
-                    type="email"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="nome@empresa.com"
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                    required
-                    disabled={isForgotLoading}
-                  />
-                </div>
+                {forgotStep === 'email' ? (
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">E-mail</label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="nome@empresa.com"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
+                      required
+                      disabled={isForgotLoading}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Código ou Link Copiado</label>
+                      <input
+                        type="text"
+                        value={forgotCode}
+                        onChange={(e) => setForgotCode(e.target.value)}
+                        placeholder="Ex: 123456 ou http://localhost:3000..."
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none tracking-widest text-center"
+                        required
+                        disabled={isForgotLoading}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Nova Senha</label>
+                      <input
+                        type="password"
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
+                        required
+                        disabled={isForgotLoading}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
@@ -276,6 +425,9 @@ export default function LoginPage() {
                       setForgotError('');
                       setForgotMessage('');
                       setForgotEmail('');
+                      setForgotCode('');
+                      setForgotNewPassword('');
+                      setForgotStep('email');
                     }}
                     className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
@@ -283,10 +435,10 @@ export default function LoginPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isForgotLoading || !forgotEmail}
+                    disabled={isForgotLoading || (forgotStep === 'email' ? !forgotEmail : (!forgotCode || !forgotNewPassword))}
                     className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {isForgotLoading ? 'Enviando...' : 'Enviar Link'}
+                    {isForgotLoading ? 'Carregando...' : (forgotStep === 'email' ? 'Enviar Código' : 'Redefinir Senha')}
                   </button>
                 </div>
               </form>

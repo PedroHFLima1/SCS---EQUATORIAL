@@ -9,15 +9,6 @@ import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
 import { CONCESSIONARIAS } from '@/lib/constants';
 
-const statusColors: Record<string, string> = {
-  'NOVO': 'bg-blue-100 text-blue-700 border-blue-200',
-  'TRIAGEM': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  'CORREÇÃO': 'bg-orange-100 text-orange-700 border-orange-200',
-  'PROTOCOLADO': 'bg-purple-100 text-purple-700 border-purple-200',
-  'APROVADO': 'bg-green-100 text-green-700 border-green-200',
-  'CANCELADO': 'bg-gray-100 text-gray-600 border-gray-300',
-};
-
 const getSlaColor = (sla: number | string) => {
   const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
   if (days <= 2) return 'bg-green-100 text-green-700 border-green-200';
@@ -302,19 +293,6 @@ export default function AmbientalPage() {
                   <option>CANCELADO</option>
                 </select>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Concessionária</label>
-                <select 
-                  value={concessionariaFilter}
-                  onChange={(e) => setConcessionariaFilter(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
-                >
-                  <option>Todas</option>
-                  {CONCESSIONARIAS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
             {role !== 'PARCEIRA' && (
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Parceira</label>
@@ -385,6 +363,7 @@ export default function AmbientalPage() {
                         <option>NÃO SE APLICA</option>
                         <option>NÃO INICIADO</option>
                         <option>EM ANDAMENTO</option>
+                        <option>PROTOCOLADO</option>
                         <option>APROVADO</option>
                         <option>CANCELADO</option>
                       </>

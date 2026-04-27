@@ -8,16 +8,7 @@ import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, 
 import Papa from 'papaparse';
 import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
-import { CONCESSIONARIAS } from '@/lib/constants';
-
-const statusColors: Record<string, string> = {
-  'NOVO': 'bg-blue-100 text-blue-700',
-  'TRIAGEM': 'bg-purple-100 text-purple-700',
-  'CORREÇÃO': 'bg-orange-100 text-orange-700',
-  'PROTOCOLADO': 'bg-yellow-100 text-yellow-700',
-  'APROVADO': 'bg-green-100 text-green-700',
-  'CANCELADO': 'bg-red-100 text-red-700',
-};
+import { CONCESSIONARIAS, STATUS_COLORS } from '@/lib/constants';
 
 const getSlaColor = (sla: number | string) => {
   const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
@@ -27,7 +18,7 @@ const getSlaColor = (sla: number | string) => {
 };
 
 export default function AdminPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, email } = useAuth();
   const { socket } = useSocket();
   const [activeTab, setActiveTab] = useState<'usuarios' | 'auditoria' | 'configuracoes' | 'importacao'>('usuarios');
 
@@ -1161,18 +1152,6 @@ export default function AdminPage() {
                   type="text"
                   value={editFormData.protocol}
                   onChange={(e) => setEditFormData({...editFormData, protocol: e.target.value})}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  SLA (Dias)
-                </label>
-                <input
-                  type="number"
-                  value={editFormData.sla}
-                  onChange={(e) => setEditFormData({...editFormData, sla: Number(e.target.value)})}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 />
               </div>
