@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
@@ -49,10 +50,21 @@ export async function POST(request: Request) {
     for (const process of processesToUpdate) {
       let dataToUpdate: any = {};
       
+      const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
+      
+      const isReturnToAnuencia = body.returnToAnuencia === true;
+
       if (isLayer1) {
         if (process.statusInscricao !== status) {
+
           dataToUpdate.statusInscricao = status;
           dataToUpdate.statusUpdatedAt = new Date();
+          
+          if (terminalStatuses.includes(status) && process.statusUpdatedAt) {
+             const diffMs = new Date().getTime() - new Date(process.statusUpdatedAt).getTime();
+             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+             dataToUpdate.sla = `${diffDays}d`;
+          }
         } else {
           dataToUpdate.statusInscricao = status;
         }
@@ -60,6 +72,12 @@ export async function POST(request: Request) {
         if (process.status !== status) {
           dataToUpdate.status = status;
           dataToUpdate.statusUpdatedAt = new Date();
+          
+          if (terminalStatuses.includes(status) && process.statusUpdatedAt) {
+             const diffMs = new Date().getTime() - new Date(process.statusUpdatedAt).getTime();
+             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+             dataToUpdate.sla = `${diffDays}d`;
+          }
         } else {
           dataToUpdate.status = status;
         }
@@ -74,6 +92,11 @@ export async function POST(request: Request) {
       if (tipo !== undefined) dataToUpdate.tipo = tipo;
       if (rodovia !== undefined) dataToUpdate.rodovia = rodovia;
       if (km !== undefined) dataToUpdate.km = km;
+
+      if (isReturnToAnuencia) {
+        dataToUpdate.pendenciaAnuencia = true;
+        dataToUpdate.statusAnuencia = 'EM PENDÊNCIA (RETORNO)';
+      }
 
       // Regra de bloqueio da Anuência:
       if (!isLayer1 && module === 'anuencia' && status === 'APROVADO' && process.pendenciaAnuencia) {
@@ -93,7 +116,7 @@ export async function POST(request: Request) {
       await prisma.movement.create({
         data: {
           processId: process.id,
-          description: `Status ${isLayer1 ? 'da Inscrição ' : ''}alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' ? ' (Encaminhado para próximos módulos)' : ''}`,
+          description: `Status ${isLayer1 ? 'da Inscrição ' : ''}alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' ? ' (Encaminhado para próximos módulos)' : ''}${isReturnToAnuencia ? ' - Retornado para Anuência por haver outro embargo.' : ''}`,
           user: user || 'Sistema',
         }
       });

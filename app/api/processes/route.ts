@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
@@ -39,9 +40,11 @@ export async function GET(request: Request) {
     });
     
     // Compute dynamic SLA based on statusUpdatedAt
+    const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
     const processesWithSla = processes.map((process: any) => {
-      let slaStr = "0d";
-      if (process.statusUpdatedAt) {
+      let slaStr = process.sla || "0d";
+      const currentStatus = process.status || process.statusInscricao;
+      if (!terminalStatuses.includes(currentStatus) && process.statusUpdatedAt) {
         const diffMs = new Date().getTime() - new Date(process.statusUpdatedAt).getTime();
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
         slaStr = `${diffDays}d`;

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench, Download, MessageSquarePlus, Check } from 'lucide-react';
+import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench, Download, MessageSquarePlus, Check, Paperclip, ExternalLink, UploadCloud } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
 import { useAuth } from '@/app/context/AuthContext';
@@ -252,28 +252,124 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
 
   const canCreateProtocol = role === 'ADMIN' || role === 'PARCEIRA';
 
-  const renderAcoes = (process: any) => (
-    <div className="flex justify-center space-x-3" onClick={(e) => e.stopPropagation()}>
-      {openTreatment && (
-        <button onClick={() => openTreatment(process)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400" title="Tratar Processo">
-          <Edit className="h-4 w-4" />
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, process: any) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    let realModule = moduleName;
+    if (!realModule || realModule === 'admin' || realModule === 'parceira') {
+      realModule = process.module || 'TRIAGEM';
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('processId', process.id);
+    formData.append('module', realModule);
+
+    try {
+      const response = await fetch('/api/processes/upload-attachment', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        let errMessage = 'Falha no upload';
+        try {
+          const result = await response.json();
+          if (result.details) errMessage += ': ' + result.details;
+          else errMessage += ': ' + JSON.stringify(result);
+        } catch (e) {
+          errMessage += ' (Status: ' + response.status + ')';
+        }
+        throw new Error(errMessage);
+      }
+      alert(`Anexo "${file.name}" salvo com sucesso e pasta SharePoint criada.`);
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao realizar upload do anexo');
+    }
+  };
+
+  const renderAcoes = (process: any) => {
+    // Determine if it's layer 2 (projeto)
+    const isProjeto = !process.isLayer1 && process.projeto;
+    
+    return (
+      <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
+        {openTreatment && (
+          <button onClick={() => openTreatment(process)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Processo">
+            <Edit className="h-4 w-4" />
+          </button>
+        )}
+        <button onClick={() => handleOpenHistory(process.inscricao || process.idSolicitacao)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1" title="Ver Histórico Completo">
+          <ClipboardList className="h-4 w-4" />
         </button>
-      )}
-      <button onClick={() => handleOpenHistory(process.inscricao || process.idSolicitacao)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" title="Ver Histórico Completo">
-        <ClipboardList className="h-4 w-4" />
-      </button>
-      {handleSendEmail && (
-        <button onClick={() => handleSendEmail(process)} className="text-gray-400 hover:text-orange-600 dark:hover:text-orange-400" title="Enviar Email">
-          <Mail className="h-4 w-4" />
-        </button>
-      )}
-      {role === 'ADMIN' && confirmCancel && (
-        <button onClick={() => confirmCancel(process)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400" title="Cancelar Processo">
-          <XCircle className="h-4 w-4" />
-        </button>
-      )}
-    </div>
-  );
+        {isProjeto && (
+          <button
+            onClick={() => setObsModal({ isOpen: true, inscricao: process.inscricao || process.idSolicitacao, projeto: process.projeto, type: 'Projeto' })}
+            className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1"
+            title="Adicionar Observação"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </button>
+        )}
+        {isProjeto && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const baseUrl = "https://grupoequatorialenergia.sharepoint.com/sites/ExecutivaProjetoseFiscalizaoEQTLGO/Documentos%20Compartilhados/Forms/AllItems.aspx";
+              let sharepointUrl = '';
+
+              if (process.sharepointFolderId) {
+                if (process.sharepointFolderId.startsWith('http')) {
+                  sharepointUrl = process.sharepointFolderId;
+                } else {
+                  sharepointUrl = `${baseUrl}?id=${process.sharepointFolderId}&viewid=5af88566-c1c9-43c9-a2ee-47c2cd5a32ff`;
+                }
+              } else {
+                const baseId = "%2Fsites%2FExecutivaProjetoseFiscalizaoEQTLGO%2FDocumentos%20Compartilhados%2FExecutiva%20Projetos%20e%20Fiscaliza%C3%A7%C3%A3o%2FSCS%20%2D%20EMBARGOS";
+                let folderModule = moduleName;
+                if (!folderModule || folderModule === 'admin' || folderModule === 'parceira') {
+                  folderModule = process.module || 'TRIAGEM';
+                }
+                folderModule = folderModule.toUpperCase();
+                const targetId = `${baseId}%2F${folderModule}`;
+                sharepointUrl = `${baseUrl}?id=${targetId}&viewid=5af88566-c1c9-43c9-a2ee-47c2cd5a32ff`;
+              }
+              window.open(sharepointUrl, '_blank');
+            }}
+            className="text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 p-1"
+            title={`Abrir pasta SharePoint`}
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+        )}
+        {isProjeto && (
+          <label
+            className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 cursor-pointer"
+            title="Adicionar Anexo"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <UploadCloud className="h-4 w-4" />
+            <input 
+              type="file" 
+              className="hidden" 
+              onChange={(e) => handleFileUpload(e, process)} 
+            />
+          </label>
+        )}
+        {handleSendEmail && (
+          <button onClick={() => handleSendEmail(process)} className="text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 p-1" title="Enviar Email">
+            <Mail className="h-4 w-4" />
+          </button>
+        )}
+        {role === 'ADMIN' && confirmCancel && (
+          <button onClick={() => confirmCancel(process)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1" title="Cancelar Processo">
+            <XCircle className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -454,13 +550,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                           ) : (
                             <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
                           )}
-                          <button
-                            onClick={() => setObsModal({ isOpen: true, inscricao: item.inscricao, projeto: null, type: 'Inscrição' })}
-                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 text-[10px] px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium border border-blue-100 dark:border-blue-800/50"
-                          >
-                            <MessageSquarePlus className="w-3 h-3" />
-                            Adicionar Obs
-                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -564,13 +653,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                           ) : (
                             <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
                           )}
-                          <button
-                            onClick={() => setObsModal({ isOpen: true, inscricao: item.process.inscricao || item.process.idSolicitacao, projeto: item.projeto, type: 'Projeto' })}
-                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 text-[10px] px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium border border-blue-100 dark:border-blue-800/50"
-                          >
-                            <MessageSquarePlus className="w-3 h-3" />
-                            Adicionar Obs
-                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">

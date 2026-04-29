@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { importTriagemData } from '@/app/actions/triagem';
 
 export async function POST(request: Request) {

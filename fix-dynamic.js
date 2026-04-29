@@ -1,14 +1,30 @@
 const fs = require('fs');
-const glob = require('glob'); // Note: we can just use pure js for finding files or child_process
 const path = require('path');
-const execSync = require('child_process').execSync;
 
-const files = execSync('find app/api -name "route.ts"').toString().trim().split('\n');
-files.forEach(f => {
-  if (f) {
-    const content = fs.readFileSync(f, 'utf8');
-    if (!content.includes("export const dynamic = 'force-dynamic';")) {
-       fs.writeFileSync(f, "export const dynamic = 'force-dynamic';\n" + content);
+function walk(dir) {
+  let results = [];
+  const list = fs.readdirSync(dir);
+  list.forEach(file => {
+    file = path.join(dir, file);
+    const stat = fs.statSync(file);
+    if (stat && stat.isDirectory()) {
+      results = results.concat(walk(file));
+    } else {
+      results.push(file);
+    }
+  });
+  return results;
+}
+
+const files = walk('app/api');
+files.forEach(file => {
+  if (file.endsWith('.ts')) {
+    let content = fs.readFileSync(file, 'utf8');
+    if (content.startsWith("export const dynamic = 'force-dynamic';")) {
+      content = content.replace("export const dynamic = 'force-dynamic';\n", "");
+      content = content.replace("import { NextResponse } from 'next/server';\n", "import { NextResponse } from 'next/server';\n\nexport const dynamic = 'force-dynamic';\n");
+      fs.writeFileSync(file, content);
+      console.log('Fixed', file);
     }
   }
 });

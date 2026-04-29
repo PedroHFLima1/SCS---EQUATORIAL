@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, MessageSquarePlus, X, Plus, MessageSquare } from 'lucide-react';
+import { Download, MessageSquarePlus, X, Plus, MessageSquare, Paperclip, ExternalLink, UploadCloud } from 'lucide-react';
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Table, 
@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { aprovarTriagem } from '@/app/actions/triagem';
+import { aprovarTriagem, reprovarTriagem } from '@/app/actions/triagem';
 import { useAuth } from '@/app/context/AuthContext';
 import {
   Dialog,
@@ -51,7 +51,7 @@ interface TriagemTableProps {
 export function TriagemTable({ items }: TriagemTableProps) {
   const { role, company, email, name } = useAuth();
   const [localItems, setLocalItems] = useState<TriagemItem[]>(items);
-  const [activeTab, setActiveTab] = useState<'pendentes' | 'aprovados'>('pendentes');
+  const [activeTab, setActiveTab] = useState<'pendentes' | 'aprovados' | 'reprovados'>('pendentes');
   
   // Update local items when props change
   useEffect(() => {
@@ -60,11 +60,45 @@ export function TriagemTable({ items }: TriagemTableProps) {
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReprovationModalOpen, setIsReprovationModalOpen] = useState(false);
+  const [reprovationReason, setReprovationReason] = useState('');
   const [selectedItem, setSelectedItem] = useState<TriagemItem | null>(null);
 
   // Observation Modal state
   const [obsModal, setObsModal] = useState<{isOpen: boolean, idSolicitacao: string, projeto: string | null, type: string} | null>(null);
   const [newObs, setNewObs] = useState('');
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, item: any) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('processId', item.id);
+    formData.append('module', 'TRIAGEM');
+
+    try {
+      const response = await fetch('/api/processes/upload-attachment', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        let errMessage = 'Falha no upload';
+        try {
+          const result = await response.json();
+          if (result.details) errMessage += ': ' + result.details;
+          else errMessage += ': ' + JSON.stringify(result);
+        } catch (e) {
+          errMessage += ' (Status: ' + response.status + ')';
+        }
+        throw new Error(errMessage);
+      }
+      alert(`Anexo "${file.name}" salvo com sucesso e pasta SharePoint criada.`);
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao realizar upload do anexo');
+    }
+  };
 
   const handleSubmitObservation = async () => {
     if (!obsModal || !newObs.trim()) return;
@@ -104,9 +138,11 @@ export function TriagemTable({ items }: TriagemTableProps) {
 
     // Filter by tab
     if (activeTab === 'pendentes') {
-      filtered = filtered.filter(item => item.statusTriagem !== 'FINALIZADO');
-    } else {
+      filtered = filtered.filter(item => item.statusTriagem !== 'FINALIZADO' && item.statusTriagem !== 'REPROVADO');
+    } else if (activeTab === 'aprovados') {
       filtered = filtered.filter(item => item.statusTriagem === 'FINALIZADO');
+    } else if (activeTab === 'reprovados') {
+      filtered = filtered.filter(item => item.statusTriagem === 'REPROVADO');
     }
 
     return filtered;
@@ -120,6 +156,12 @@ export function TriagemTable({ items }: TriagemTableProps) {
   const openConfirmModal = (item: TriagemItem) => {
     setSelectedItem(item);
     setIsModalOpen(true);
+  };
+
+  const openReprovationModal = (item: TriagemItem) => {
+    setSelectedItem(item);
+    setReprovationReason('');
+    setIsReprovationModalOpen(true);
   };
 
   const handleAprovar = async () => {
@@ -140,6 +182,18 @@ export function TriagemTable({ items }: TriagemTableProps) {
     setSelectedItem(null);
   };
 
+  const handleReprovar = async () => {
+    if (!selectedItem || !reprovationReason.trim()) return;
+
+    await reprovarTriagem(selectedItem.id, reprovationReason, email || 'Desconhecido');
+    
+    // Optimistic update
+    setLocalItems(prev => prev.map(i => i.id === selectedItem.id ? { ...i, statusTriagem: 'REPROVADO', aprovadoPor: email || 'Desconhecido', dataAprovacao: new Date() } : i));
+    
+    setIsReprovationModalOpen(false);
+    setSelectedItem(null);
+  };
+
   return (
     <div className="space-y-4">
       {/* Tabs and Export */}
@@ -155,18 +209,26 @@ export function TriagemTable({ items }: TriagemTableProps) {
           >
             Pendentes
           </button>
-          {role !== 'PARCEIRA' && (
-            <button
-              onClick={() => setActiveTab('aprovados')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'aprovados'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              Aprovados
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('aprovados')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'aprovados'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Aprovados
+          </button>
+          <button
+            onClick={() => setActiveTab('reprovados')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'reprovados'
+                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Reprovados
+          </button>
         </div>
         <Button variant="outline" size="sm" className="gap-2 h-8 text-slate-700 dark:text-slate-300 mb-2" onClick={() => {
             const header = "Inscrição,Projeto,Parceira,Status Triagem,Aprovado Por,Pendente Anuência,Pendente Travessia,Pendente Ambiental,Data Importação\n";
@@ -196,17 +258,17 @@ export function TriagemTable({ items }: TriagemTableProps) {
               <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">TRAVESSIA</TableHead>
               <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">AMBIENTAL</TableHead>
               <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">DATA DE IMPORTAÇÃO</TableHead>
-              {activeTab === 'aprovados' && (
-                <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">DATA DE APROVAÇÃO</TableHead>
+              {activeTab !== 'pendentes' && (
+                <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">DATA DA DECISÃO</TableHead>
               )}
-              <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider w-32">OBS. INSCRIÇÃO</TableHead>
-              <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider w-32">OBS. PROJETO</TableHead>
-              <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AÇÕES</TableHead>
+              <TableHead className="text-xs font-medium text-muted-foreground uppercase tracking-wider">DECISÃO</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredItems.map((item, index) => {
               const isFinalizado = item.statusTriagem === 'FINALIZADO';
+              const isReprovado = item.statusTriagem === 'REPROVADO';
+              const isFinished = isFinalizado || isReprovado;
               
               // Lógica de agrupamento visual por ID_SOLICITACAO
               const isSameAsPrevious = index > 0 && filteredItems[index - 1].idSolicitacao === item.idSolicitacao;
@@ -214,7 +276,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
               return (
                 <TableRow key={item.id} className={`border-b border-gray-100 dark:border-gray-800/50`}>
                   <TableCell className="text-sm text-gray-600 dark:text-gray-400">
-                    {!isSameAsPrevious ? item.idSolicitacao : <span className="text-transparent">{item.idSolicitacao}</span>}
+                    {item.idSolicitacao}
                   </TableCell>
                   <TableCell className="text-sm text-gray-600 dark:text-gray-400">{item.projeto}</TableCell>
                   
@@ -227,7 +289,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaAnuencia}
-                        disabled={isFinalizado || role !== 'PARCEIRA'}
+                        disabled={isFinished || role !== 'PARCEIRA'}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaAnuencia', item.pendenciaAnuencia)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -239,7 +301,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaTravessia}
-                        disabled={isFinalizado || role !== 'PARCEIRA'}
+                        disabled={isFinished || role !== 'PARCEIRA'}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaTravessia', item.pendenciaTravessia)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -251,7 +313,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaAmbiental}
-                        disabled={isFinalizado || role !== 'PARCEIRA'}
+                        disabled={isFinished || role !== 'PARCEIRA'}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaAmbiental', item.pendenciaAmbiental)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -262,78 +324,58 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     {format(new Date(item.dataImportacao), 'dd/MM/yyyy')}
                   </TableCell>
 
-                  {activeTab === 'aprovados' && (
+                  {activeTab !== 'pendentes' && (
                     <TableCell className="text-sm text-gray-600 dark:text-gray-400">
                       {item.dataAprovacao ? format(new Date(item.dataAprovacao), 'dd/MM/yyyy HH:mm') : '-'}
                     </TableCell>
                   )}
 
                   <TableCell>
-                    <div className="flex flex-col gap-2 items-start">
-                      {(item as any).observacaoInscricao ? (
-                        <span className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2" title={(item as any).observacaoInscricao}>
-                          "{(item as any).observacaoInscricao}"
-                        </span>
+                    <div className="flex items-center gap-3">
+                      {isFinalizado ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 font-normal">
+                            Aprovado
+                          </Badge>
+                          {item.aprovadoPor && (
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                              por: {item.aprovadoPor}
+                            </span>
+                          )}
+                        </div>
+                      ) : isReprovado ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 font-normal">
+                            Reprovado
+                          </Badge>
+                          {item.aprovadoPor && (
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                              por: {item.aprovadoPor}
+                            </span>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
+                        role === 'PARCEIRA' ? (
+                          <div className="flex items-center gap-2">
+                             <Button size="sm" onClick={() => openConfirmModal(item)} className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs px-3 shadow-sm rounded-md">
+                               Aprovar
+                             </Button>
+                             <Button size="sm" onClick={() => openReprovationModal(item)} className="bg-red-600 hover:bg-red-700 text-white h-7 text-xs px-3 shadow-sm rounded-md">
+                               Reprovar
+                             </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Aguardando</span>
+                        )
                       )}
-                      <button
-                        onClick={() => setObsModal({ isOpen: true, idSolicitacao: item.idSolicitacao, projeto: null, type: 'Inscrição' })}
-                        className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 text-[10px] px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium border border-blue-100 dark:border-blue-800/50"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Adicionar Obs
-                      </button>
                     </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <div className="flex flex-col gap-2 items-start">
-                      {(item as any).observacaoProjeto ? (
-                        <span className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2" title={(item as any).observacaoProjeto}>
-                          "{(item as any).observacaoProjeto}"
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
-                      )}
-                      <button
-                        onClick={() => setObsModal({ isOpen: true, idSolicitacao: item.idSolicitacao, projeto: item.projeto, type: 'Projeto' })}
-                        className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 text-[10px] px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium border border-blue-100 dark:border-blue-800/50"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Adicionar Obs
-                      </button>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    {isFinalizado ? (
-                      <div className="flex flex-col items-start gap-1">
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 font-normal">
-                          Aprovado
-                        </Badge>
-                        {item.aprovadoPor && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                            por: {item.aprovadoPor}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      role === 'PARCEIRA' ? (
-                        <Button size="sm" onClick={() => openConfirmModal(item)} className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs px-3">
-                          Aprovar
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic">Aguardando Parceira</span>
-                      )
-                    )}
                   </TableCell>
                 </TableRow>
               );
             })}
             {filteredItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={role.startsWith('GESTOR') || role === 'ADMIN' ? (activeTab === 'aprovados' ? 9 : 8) : (activeTab === 'aprovados' ? 8 : 7)} className="text-center py-8 text-muted-foreground text-sm">
+                <TableCell colSpan={role.startsWith('GESTOR') || role === 'ADMIN' ? (activeTab !== 'pendentes' ? 9 : 8) : (activeTab !== 'pendentes' ? 8 : 7)} className="text-center py-8 text-muted-foreground text-sm">
                   Nenhum projeto encontrado.
                 </TableCell>
               </TableRow>
@@ -356,6 +398,33 @@ export function TriagemTable({ items }: TriagemTableProps) {
             <Button variant="outline" onClick={() => setIsModalOpen(false)} className="text-slate-700 dark:text-slate-300">Cancelar</Button>
             <Button onClick={handleAprovar} className="bg-green-600 hover:bg-green-700 text-white">
               Sim, Aprovar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isReprovationModalOpen} onOpenChange={setIsReprovationModalOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border dark:border-slate-800 shadow-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Reprovar Projeto</DialogTitle>
+            <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+              Informe o motivo da reprovação para o projeto {selectedItem?.projeto}. Este campo é obrigatório.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <textarea
+              value={reprovationReason}
+              onChange={(e) => setReprovationReason(e.target.value)}
+              placeholder="Digite o motivo da reprovação..."
+              className="w-full h-32 p-3 text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none transition-all"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReprovationModalOpen(false)} className="text-slate-700 dark:text-slate-300">Cancelar</Button>
+            <Button onClick={handleReprovar} disabled={!reprovationReason.trim()} className="bg-red-600 hover:bg-red-700 text-white disabled:bg-red-400">
+              Confirmar Reprovação
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -7,7 +7,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useNotifications } from '@/app/context/NotificationContext';
 import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
-import { CONCESSIONARIAS } from '@/lib/constants';
+import { CONCESSIONARIAS, EM_ANDAMENTO_STATUSES, STATUS_COLORS } from '@/lib/constants';
 
 const getSlaColor = (sla: number | string) => {
   const days = typeof sla === 'string' ? parseInt(sla.replace('d', '')) || 0 : sla;
@@ -21,6 +21,7 @@ export default function TravessiaPage() {
   const [isTreatmentOpen, setIsTreatmentOpen] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [justification, setJustification] = useState('');
+  const [hasAnotherEmbargo, setHasAnotherEmbargo] = useState(false);
   const [protocol, setProtocol] = useState('');
   const [valor, setValor] = useState('');
   const [dataVencimento, setDataVencimento] = useState('');
@@ -158,6 +159,7 @@ export default function TravessiaPage() {
   const openTreatment = (process: any) => {
     setSelectedProcess(process);
     setIsTreatmentOpen(true);
+    setHasAnotherEmbargo(false);
   };
 
   const handleSaveMovement = async () => {
@@ -174,6 +176,7 @@ export default function TravessiaPage() {
             status: newStatus,
             justification: justification,
             user: email || role,
+            returnToAnuencia: hasAnotherEmbargo,
             ...(newStatus === 'PROTOCOLADO' && {
               protocol,
               valor,
@@ -202,6 +205,7 @@ export default function TravessiaPage() {
         setIsTreatmentOpen(false);
         setNewStatus('');
         setJustification('');
+        setHasAnotherEmbargo(false);
         setProtocol('');
         setValor('');
         setDataVencimento('');
@@ -266,9 +270,9 @@ export default function TravessiaPage() {
         {[
           { label: 'NÃO SE APLICA', count: processes.filter(p => (p.statusInscricao || p.status) === 'NÃO SE APLICA').length, color: 'border-gray-500' },
           { label: 'NÃO INICIADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'NÃO INICIADO').length, color: 'border-yellow-500' },
-          { label: 'EM ANDAMENTO', count: processes.filter(p => (p.statusInscricao || p.status) === 'EM ANDAMENTO').length, color: 'border-blue-500' },
+          { label: 'EM ANDAMENTO', count: processes.filter(p => EM_ANDAMENTO_STATUSES.includes(p.statusInscricao || p.status)).length, color: 'border-blue-500' },
           { label: 'APROVADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'APROVADO').length, color: 'border-green-500' },
-          { label: 'CANCELADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'CANCELADO').length, color: 'border-red-500' },
+          { label: 'CANCELADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'CANCELADO' || (p.statusInscricao || p.status) === 'REPROVADO').length, color: 'border-red-500' },
         ].map((card) => (
           <div key={card.label} className={`rounded-lg bg-white dark:bg-gray-900 p-4 shadow-sm border-b-4 ${card.color}`}>
             <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">{card.label}</div>
@@ -310,11 +314,7 @@ export default function TravessiaPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas as Fases</option>
-                  <option>NÃO SE APLICA</option>
-                  <option>NÃO INICIADO</option>
-                  <option>EM ANDAMENTO</option>
-                  <option>APROVADO</option>
-                  <option>CANCELADO</option>
+                  {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
@@ -417,6 +417,21 @@ export default function TravessiaPage() {
                     )}
                   </select>
                 </div>
+
+                {!selectedProcess?.isLayer1 && newStatus === 'APROVADO' && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <input 
+                      type="checkbox" 
+                      id="hasAnotherEmbargo" 
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={hasAnotherEmbargo}
+                      onChange={(e) => setHasAnotherEmbargo(e.target.checked)}
+                    />
+                    <label htmlFor="hasAnotherEmbargo" className="text-sm text-gray-700 dark:text-gray-300">
+                      Possui algum outro embargo (ex: Anuência)? Retornar para Anuência.
+                    </label>
+                  </div>
+                )}
 
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Justificativa / Razão <span className="text-red-500">*</span></label>

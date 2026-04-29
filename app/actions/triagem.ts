@@ -120,6 +120,8 @@ export async function aprovarTriagem(id: string, changes: any, user: string) {
         pendenciaAmbiental: changes.pendenciaAmbiental,
         statusInscricao: 'NÃO INICIADO',
         status: 'NÃO INICIADO',
+        dataAprovacao: new Date(),
+        aprovadoPor: user,
       }
     });
 
@@ -136,6 +138,34 @@ export async function aprovarTriagem(id: string, changes: any, user: string) {
   } catch (error) {
     console.error('Erro ao aprovar triagem:', error);
     return { success: false, error: 'Falha ao aprovar triagem' };
+  }
+}
+
+export async function reprovarTriagem(id: string, reason: string, user: string) {
+  try {
+    const process = await prisma.process.update({
+      where: { id },
+      data: {
+        statusTriagem: 'REPROVADO',
+        dataAprovacao: new Date(), // using same field as dataReprovacao to keep table sorting easy
+        aprovadoPor: user,
+        observacaoProjeto: reason, // Store the reason in observacaoProjeto
+      }
+    });
+
+    await prisma.movement.create({
+      data: {
+        processId: id,
+        description: `Triagem reprovada. Motivo: ${reason}`,
+        user: user,
+      }
+    });
+
+    revalidatePath('/dashboard/operacional');
+    return { success: true, process };
+  } catch (error) {
+    console.error('Erro ao reprovar triagem:', error);
+    return { success: false, error: 'Falha ao reprovar triagem' };
   }
 }
 

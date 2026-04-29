@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
@@ -19,6 +20,12 @@ export async function POST(request: Request) {
     
     if (process && process.status !== status) {
         dataToUpdate.statusUpdatedAt = new Date();
+        const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
+        if (terminalStatuses.includes(status) && process.statusUpdatedAt) {
+             const diffMs = new Date().getTime() - new Date(process.statusUpdatedAt).getTime();
+             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+             dataToUpdate.sla = `${diffDays}d`;
+        }
     }
     
     const updatedProcess = await prisma.process.update({

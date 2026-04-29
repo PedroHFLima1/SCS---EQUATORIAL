@@ -712,11 +712,7 @@ export default function AdminPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas as Fases</option>
-                  <option>NÃO SE APLICA</option>
-                  <option>NÃO INICIADO</option>
-                  <option>EM ANDAMENTO</option>
-                  <option>APROVADO</option>
-                  <option>CANCELADO</option>
+                  {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>

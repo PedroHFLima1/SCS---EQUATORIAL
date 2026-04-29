@@ -46,6 +46,8 @@ model Process {
   
   statusTriagem       String   @default("PENDENTE") // PENDENTE, EM_APROVACAO, FINALIZADO
   dataImportacao      DateTime @default(now())
+  dataAprovacao       DateTime?
+  aprovadoPor         String?
 
   // Legacy fields
   inscricao           String?
@@ -65,6 +67,7 @@ model Process {
   rodovia             String?
   km                  String?
   sla                 String?
+  sharepointFolderId  String?
   module              String   @default("travessia")
   observacaoInscricao String?  @default("")
   observacaoProjeto   String?  @default("")
