@@ -27,14 +27,14 @@ export async function GET(request: Request) {
       }
     });
 
-    // Flatten movements and include project info
+    // Flatten movements and include module info from movement if available
     let allMovements: any[] = [];
     processes.forEach(p => {
       p.movements.forEach(m => {
         allMovements.push({
           ...m,
           projeto: p.projeto,
-          module: p.module
+          module: m.module || p.module // fallback to process module if movement module is missing (legacy)
         });
       });
     });

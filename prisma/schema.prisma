@@ -86,6 +86,8 @@ model Movement {
   description String
   date        DateTime @default(now())
   user        String
+  module      String?  // The module where this movement happened
+  type        String?  // type of movement: 'status', 'origin', 'rejection', etc.
 
   @@schema("public")
 }

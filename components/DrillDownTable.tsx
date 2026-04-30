@@ -975,6 +975,15 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                         const isObs = movement.description.toLowerCase().includes('observação');
                         const desc = movement.description.toLowerCase();
                         
+                        // Filter history per queue
+                        if (moduleName && moduleName !== 'admin' && moduleName !== 'parceira') {
+                           // If we are in a module, only show movements of that module
+                           // or origin movements for that module
+                           if (movement.module !== moduleName && movement.type !== 'origin') {
+                              return null;
+                           }
+                        }
+
                         if (isObs) {
                           Icon = MessageSquare;
                           colorClass = 'bg-indigo-500';
@@ -1011,7 +1020,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                                 <div>
                                   <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">{movement.user}</span>
                                   <span className="block text-xs font-medium text-blue-600 dark:text-blue-400">
-                                    Projeto: {movement.projeto || 'N/A'} {movement.module && `(${movement.module})`}
+                                    Projeto: {movement.projeto || 'N/A'} {movement.module && `(${movement.module.charAt(0).toUpperCase() + movement.module.slice(1)})`}
                                   </span>
                                 </div>
                               </div>

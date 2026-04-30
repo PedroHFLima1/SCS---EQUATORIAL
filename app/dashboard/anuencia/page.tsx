@@ -7,6 +7,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useNotifications } from '@/app/context/NotificationContext';
 import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
+import { ProcessTreatmentModal } from '@/components/ProcessTreatmentModal';
 import { CONCESSIONARIAS, EM_ANDAMENTO_STATUSES, STATUS_COLORS } from '@/lib/constants';
 
 const getSlaColor = (sla: number | string) => {
@@ -19,9 +20,6 @@ const getSlaColor = (sla: number | string) => {
 export default function AnuenciaPage() {
   const [processes, setProcesses] = useState<any[]>([]);
   const [isTreatmentOpen, setIsTreatmentOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  const [justification, setJustification] = useState('');
-  const [hasAnotherEmbargo, setHasAnotherEmbargo] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [processToDelete, setProcessToDelete] = useState<any>(null);
@@ -157,45 +155,13 @@ export default function AnuenciaPage() {
   const openTreatment = (process: any) => {
     setSelectedProcess(process);
     setIsTreatmentOpen(true);
-    setHasAnotherEmbargo(false);
   };
 
-  const handleSaveMovement = async () => {
-    if (selectedProcess && newStatus) {
-      try {
-        const res = await fetch('/api/processes/update-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inscricao: selectedProcess.inscricao || selectedProcess.idSolicitacao,
-            projeto: selectedProcess.isLayer1 ? undefined : selectedProcess.projeto,
-            isLayer1: selectedProcess.isLayer1,
-            module: 'anuencia',
-            status: newStatus,
-            justification: justification,
-            user: email || role,
-            returnToAnuencia: hasAnotherEmbargo
-          }),
-        });
-
-        if (!res.ok) throw new Error('Failed to update process');
-
-        const updatedProcesses = await res.json();
-
-        // Update local state immediately
-        setProcesses(prev => prev.map(p => {
-          const updated = updatedProcesses.find((up: any) => up.id === p.id);
-          return updated ? updated : p;
-        }));
-
-        setIsTreatmentOpen(false);
-        setNewStatus('');
-        setJustification('');
-        setHasAnotherEmbargo(false);
-      } catch (error) {
-        console.error('Error updating process:', error);
-      }
-    }
+  const handleTreatmentSuccess = (updatedProcesses: any[]) => {
+    setProcesses(prev => prev.map(p => {
+      const updated = updatedProcesses.find((up: any) => up.id === p.id);
+      return updated ? updated : p;
+    }));
   };
 
   const handleSendEmail = (process: any) => {
@@ -367,95 +333,15 @@ export default function AnuenciaPage() {
       </div>
 
       {/* Treatment Modal */}
-      {isTreatmentOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-lg bg-white dark:bg-gray-900 shadow-xl border dark:border-gray-800 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b dark:border-gray-800 p-4 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white uppercase">MOVIMENTAR PROCESSO</h3>
-              <button onClick={() => setIsTreatmentOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 overflow-y-auto">
-              <div className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium text-gray-900 dark:text-gray-200">Processo:</span> {selectedProcess?.inscricao} | <span className="font-medium text-gray-900 dark:text-gray-200">Status Atual:</span> {selectedProcess?.status}
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Novo Status</label>
-                  <select 
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">Selecione um status</option>
-                    {selectedProcess?.isLayer1 ? (
-                      <>
-                        <option>NÃO SE APLICA</option>
-                        <option>NÃO INICIADO</option>
-                        <option>EM ANDAMENTO</option>
-                        <option>PROTOCOLADO</option>
-                        <option>APROVADO</option>
-                        <option>CANCELADO</option>
-                      </>
-                    ) : (
-                      <>
-                        <option>ATENDIDO</option>
-                        <option>NEGADO</option>
-                        <option>DUP</option>
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                {!selectedProcess?.isLayer1 && newStatus === 'APROVADO' && (
-                  <div className="flex items-center gap-2 mb-4">
-                    <input 
-                      type="checkbox" 
-                      id="hasAnotherEmbargo" 
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      checked={hasAnotherEmbargo}
-                      onChange={(e) => setHasAnotherEmbargo(e.target.checked)}
-                    />
-                    <label htmlFor="hasAnotherEmbargo" className="text-sm text-gray-700 dark:text-gray-300">
-                      Possui algum outro embargo (ex: Anuência)? Retornar para Anuência.
-                    </label>
-                  </div>
-                )}
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Justificativa / Razão <span className="text-red-500">*</span></label>
-                  <textarea
-                    rows={4}
-                    value={justification}
-                    onChange={(e) => setJustification(e.target.value)}
-                    placeholder="Insira a justificativa detalhada para a movimentação..."
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 border-t dark:border-gray-800 p-4 bg-gray-50 dark:bg-gray-800/50 shrink-0">
-              <button
-                onClick={() => setIsTreatmentOpen(false)}
-                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveMovement}
-                disabled={!newStatus || !justification}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Salvar Movimentação
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ProcessTreatmentModal
+        isOpen={isTreatmentOpen}
+        onClose={() => setIsTreatmentOpen(false)}
+        onSuccess={handleTreatmentSuccess}
+        process={selectedProcess}
+        module="anuencia"
+        userEmail={email || ''}
+        userRole={role || ''}
+      />
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (

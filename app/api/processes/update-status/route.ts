@@ -6,7 +6,23 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, inscricao, projeto, isLayer1, module, status, user, justification, protocol, valor, dataVencimento, tipo, rodovia, km } = body;
+    const { 
+      id, 
+      inscricao, 
+      projeto, 
+      isLayer1, 
+      module, 
+      status, 
+      user, 
+      justification, 
+      protocol, 
+      valor, 
+      dataVencimento, 
+      tipo, 
+      rodovia, 
+      km,
+      flags // New: { pendenciaAnuencia?: boolean, pendenciaTravessia?: boolean, pendenciaAmbiental?: boolean }
+    } = body;
     
     let processesToUpdate: any[] = [];
     
@@ -92,18 +108,43 @@ export async function POST(request: Request) {
       if (tipo !== undefined) dataToUpdate.tipo = tipo;
       if (rodovia !== undefined) dataToUpdate.rodovia = rodovia;
       if (km !== undefined) dataToUpdate.km = km;
+      
+      // Apply explicit flags if provided
+      if (flags) {
+        if (flags.pendenciaAnuencia !== undefined) dataToUpdate.pendenciaAnuencia = flags.pendenciaAnuencia;
+        if (flags.pendenciaTravessia !== undefined) dataToUpdate.pendenciaTravessia = flags.pendenciaTravessia;
+        if (flags.pendenciaAmbiental !== undefined) dataToUpdate.pendenciaAmbiental = flags.pendenciaAmbiental;
+      }
 
       if (isReturnToAnuencia) {
         dataToUpdate.pendenciaAnuencia = true;
         dataToUpdate.statusAnuencia = 'EM PENDÊNCIA (RETORNO)';
       }
 
+      const isApproval = (module === 'anuencia' && status === 'ATENDIDO') || 
+                         (['travessia', 'ambiental'].includes(module) && status === 'APROVADO');
+
       // Regra de bloqueio da Anuência:
-      if (!isLayer1 && module === 'anuencia' && status === 'APROVADO' && process.pendenciaAnuencia) {
+      if (!isLayer1 && module === 'anuencia' && isApproval && process.pendenciaAnuencia) {
         dataToUpdate.pendenciaAnuencia = false;
         
-        if (process.pendenciaTravessia || process.pendenciaAmbiental) {
+        if (dataToUpdate.pendenciaTravessia || dataToUpdate.pendenciaAmbiental || process.pendenciaTravessia || process.pendenciaAmbiental) {
           dataToUpdate.status = 'NOVO';
+        }
+      }
+      
+      // Regra geral para finalizar módulos:
+      if (!isLayer1 && module !== 'anuencia' && isApproval) {
+        if (module === 'travessia') dataToUpdate.pendenciaTravessia = false;
+        if (module === 'ambiental') dataToUpdate.pendenciaAmbiental = false;
+        
+        // Se ainda houver pendências (Anuência por exemplo), volta pra NOVO
+        const hasRemainingPendencies = (dataToUpdate.pendenciaAnuencia ?? process.pendenciaAnuencia) || 
+                                      (dataToUpdate.pendenciaTravessia ?? process.pendenciaTravessia) || 
+                                      (dataToUpdate.pendenciaAmbiental ?? process.pendenciaAmbiental);
+        
+        if (hasRemainingPendencies) {
+           dataToUpdate.status = 'NOVO';
         }
       }
 
@@ -112,15 +153,65 @@ export async function POST(request: Request) {
         data: dataToUpdate,
       });
 
-      // Create movement record
+      // Create movement record for the status change
       const moduleTag = (!isLayer1 && module) ? `[${module.toUpperCase()}] ` : '';
+      let nextStagesInfo = '';
+      if (flags && !body.rejectForwarding) {
+        const stages = [];
+        if (flags.pendenciaAnuencia) stages.push('Anuência');
+        if (flags.pendenciaTravessia) stages.push('Travessia');
+        if (flags.pendenciaAmbiental) stages.push('Ambiental');
+        if (stages.length > 0) {
+          nextStagesInfo = ` (Encaminhado para: ${stages.join(', ')})`;
+        }
+      }
+
       await prisma.movement.create({
         data: {
           processId: process.id,
-          description: `${moduleTag}Status ${isLayer1 ? 'da Inscrição ' : ''}alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' ? ' (Encaminhado para próximos módulos)' : ''}${isReturnToAnuencia ? ' - Retornado para Anuência por haver outro embargo.' : ''}`,
+          description: `${moduleTag}Status ${isLayer1 ? 'da Inscrição ' : ''}alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' && !nextStagesInfo && !body.rejectForwarding ? ' (Encaminhado para próximos módulos)' : nextStagesInfo}${body.rejectForwarding ? ' - Envio para próxima fila rejeitado pelo usuário.' : ''}${isReturnToAnuencia ? ' - Retornado para Anuência por haver outro embargo.' : ''}`,
           user: user || 'Sistema',
+          module: module || 'triagem',
+          type: 'status'
         }
       });
+
+      // Handle "Came from" movements if forwarded
+      if (dataToUpdate.status === 'NOVO' && !body.rejectForwarding) {
+          const currentData = await prisma.process.findUnique({ where: { id: process.id } });
+          const targetModules = [];
+          if (currentData?.pendenciaAnuencia) targetModules.push('anuencia');
+          if (currentData?.pendenciaTravessia && !currentData?.pendenciaAnuencia) targetModules.push('travessia');
+          if (currentData?.pendenciaAmbiental && !currentData?.pendenciaAnuencia) targetModules.push('ambiental');
+
+          for (const targetModule of targetModules) {
+              const moduleName = targetModule === 'anuencia' ? 'Anuência' : targetModule === 'travessia' ? 'Travessia' : 'Ambiental';
+              const fromName = module === 'anuencia' ? 'Anuência' : module === 'travessia' ? 'Travessia' : module === 'ambiental' ? 'Ambiental' : 'Triagem';
+              
+              await prisma.movement.create({
+                  data: {
+                      processId: process.id,
+                      description: `Veio da fila ${fromName} em ${new Date().toLocaleDateString('pt-BR')}.`,
+                      user: 'Sistema',
+                      module: targetModule,
+                      type: 'origin'
+                  }
+              });
+          }
+      }
+
+      // If rejected, add a specific rejection movement for clarity
+      if (body.rejectForwarding) {
+          await prisma.movement.create({
+              data: {
+                processId: process.id,
+                description: `Envio para a fila ${nextStagesInfo.replace(' (Encaminhado para: ', '').replace(')', '')} rejeitado em ${new Date().toLocaleDateString('pt-BR')}.`,
+                user: user || 'Sistema',
+                module: module || 'triagem',
+                type: 'rejection'
+              }
+          });
+      }
 
       // Create notification
       await prisma.notification.create({
