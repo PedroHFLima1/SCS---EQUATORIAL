@@ -151,10 +151,15 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         // Calculate QTD Correções
         const qtdCorrecoes = p.movements?.filter((m: any) => m.description.includes('CORREÇÃO')).length || 0;
         
-        // Find Data Aprovação
+        // Find Data Aprovação (Triagem)
         const approvalMovement = p.movements?.find((m: any) => 
           m.description.includes('Triagem aprovada') || 
           m.description.includes('Alterações da triagem aprovadas')
+        );
+
+        // Find Data Aprovação (Anuência)
+        const anuenciaApproval = p.movements?.find((m: any) => 
+          m.description.includes('[ANUENCIA]') && m.description.includes('APROVADO')
         );
         
         map.set(p.projeto, {
@@ -163,6 +168,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           status: p.status,
           dataProtocolo: p.dataEnvioObra ? format(new Date(p.dataEnvioObra), 'dd/MM/yyyy') : '-',
           dataAprovacao: approvalMovement ? format(new Date(approvalMovement.date), 'dd/MM/yyyy') : '-',
+          dataAnuencia: anuenciaApproval ? format(new Date(anuenciaApproval.date), 'dd/MM/yyyy') : '-',
           municipio: p.municipio || '-',
           regional: p.regional || '-',
           superintendencia: p.superintendencia || '-',
@@ -589,8 +595,11 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     {(moduleName === 'anuencia' || moduleName === 'ambiental') && (
                       <th className="px-6 py-3 font-medium">DATA PROTOCOLO</th>
                     )}
-                    {moduleName === 'ambiental' && (
-                      <th className="px-6 py-3 font-medium">DATA APROVAÇÃO</th>
+                    {(moduleName === 'ambiental' || moduleName === 'travessia' || moduleName === 'anuencia') && (
+                      <th className="px-6 py-3 font-medium text-nowrap">DATA TRIAGEM</th>
+                    )}
+                    {(moduleName === 'ambiental' || moduleName === 'travessia') && (
+                      <th className="px-6 py-3 font-medium text-nowrap">DATA ANUÊNCIA</th>
                     )}
                     
                     <th className="px-6 py-3 font-medium">MUNICÍPIO</th>
@@ -628,8 +637,11 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       {(moduleName === 'anuencia' || moduleName === 'ambiental') && (
                         <td className="px-6 py-4">{item.dataProtocolo}</td>
                       )}
-                      {moduleName === 'ambiental' && (
-                        <td className="px-6 py-4">{item.dataAprovacao}</td>
+                      {(moduleName === 'ambiental' || moduleName === 'travessia' || moduleName === 'anuencia') && (
+                        <td className="px-6 py-4 text-nowrap">{item.dataAprovacao}</td>
+                      )}
+                      {(moduleName === 'ambiental' || moduleName === 'travessia') && (
+                        <td className="px-6 py-4 text-nowrap">{item.dataAnuencia}</td>
                       )}
                       
                       <td className="px-6 py-4">{item.municipio}</td>

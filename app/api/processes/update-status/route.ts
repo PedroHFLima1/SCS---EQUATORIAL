@@ -113,10 +113,11 @@ export async function POST(request: Request) {
       });
 
       // Create movement record
+      const moduleTag = (!isLayer1 && module) ? `[${module.toUpperCase()}] ` : '';
       await prisma.movement.create({
         data: {
           processId: process.id,
-          description: `Status ${isLayer1 ? 'da Inscrição ' : ''}alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' ? ' (Encaminhado para próximos módulos)' : ''}${isReturnToAnuencia ? ' - Retornado para Anuência por haver outro embargo.' : ''}`,
+          description: `${moduleTag}Status ${isLayer1 ? 'da Inscrição ' : ''}alterado para ${status}${justification ? ` - Justificativa: ${justification}` : ''}${dataToUpdate.status === 'NOVO' ? ' (Encaminhado para próximos módulos)' : ''}${isReturnToAnuencia ? ' - Retornado para Anuência por haver outro embargo.' : ''}`,
           user: user || 'Sistema',
         }
       });

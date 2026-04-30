@@ -18,16 +18,17 @@ export default async function OperacionalPage() {
   });
 
   const processes = processesRaw.map(p => {
-    // Find the last movement that indicates approval
-    const approvalMovement = p.movements.find(m => 
+    // Find the last movement that indicates approval or reproval
+    const decisionMovement = p.movements.find(m => 
       m.description.includes('Triagem aprovada') || 
-      m.description.includes('Alterações da triagem aprovadas')
+      m.description.includes('Alterações da triagem aprovadas') ||
+      m.description.includes('Triagem reprovada')
     );
 
     return {
       ...p,
-      aprovadoPor: approvalMovement ? approvalMovement.user : null,
-      dataAprovacao: approvalMovement ? approvalMovement.date : null
+      aprovadoPor: decisionMovement ? decisionMovement.user : null,
+      dataAprovacao: decisionMovement ? decisionMovement.date : null
     };
   });
 

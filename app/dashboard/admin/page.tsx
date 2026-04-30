@@ -91,7 +91,8 @@ export default function AdminPage() {
   const [auditSearch, setAuditSearch] = useState('');
   const [searchInscricao, setSearchInscricao] = useState('');
   const [searchProjeto, setSearchProjeto] = useState('');
-  const [statusFilter, setStatusFilter] = useState('Todas as Fases');
+  const [statusInscricaoFilter, setStatusInscricaoFilter] = useState('Todas as Fases');
+  const [statusProjetoFilter, setStatusProjetoFilter] = useState('Todas as Fases');
   const [concessionariaFilter, setConcessionariaFilter] = useState('Todas');
   const [parceiraFilter, setParceiraFilter] = useState('Todas');
   const [sortBy, setSortBy] = useState('Inscrição (A-Z)');
@@ -207,8 +208,11 @@ export default function AdminPage() {
     if (searchProjeto) {
       result = result.filter(p => p.projeto.toLowerCase().includes(searchProjeto.toLowerCase()));
     }
-    if (statusFilter !== 'Todas as Fases') {
-      result = result.filter(p => (p.statusInscricao || p.status) === statusFilter || p.status === statusFilter);
+    if (statusInscricaoFilter !== 'Todas as Fases') {
+      result = result.filter(p => (p.statusInscricao || p.status) === statusInscricaoFilter);
+    }
+    if (statusProjetoFilter !== 'Todas as Fases') {
+      result = result.filter(p => p.status === statusProjetoFilter);
     }
     if (concessionariaFilter !== 'Todas') {
       result = result.filter(p => p.concessionaria === concessionariaFilter);
@@ -231,7 +235,7 @@ export default function AdminPage() {
     });
 
     return result;
-  }, [processes, auditSearch, searchInscricao, searchProjeto, statusFilter, concessionariaFilter, parceiraFilter, sortBy]);
+  }, [processes, auditSearch, searchInscricao, searchProjeto, statusInscricaoFilter, statusProjetoFilter, concessionariaFilter, parceiraFilter, sortBy]);
 
   if (!isAdmin) {
     return (
@@ -705,14 +709,43 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</label>
+                <label className="mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status Inscrição</label>
                 <select 
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  value={statusInscricaoFilter}
+                  onChange={(e) => setStatusInscricaoFilter(e.target.value)}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
                 >
                   <option>Todas as Fases</option>
-                  {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                  <option>NÃO SE APLICA</option>
+                  <option>NÃO INICIADO</option>
+                  <option>EM ANDAMENTO</option>
+                  <option>PROTOCOLADO</option>
+                  <option>APROVADO</option>
+                  <option>CANCELADO</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status Projeto</label>
+                <select 
+                  value={statusProjetoFilter}
+                  onChange={(e) => setStatusProjetoFilter(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:text-gray-200"
+                >
+                  <option>Todas as Fases</option>
+                  <option>CANCELADO</option>
+                  <option>NÃO INICIADO</option>
+                  <option>TAXA</option>
+                  <option>PROTOCOLADO</option>
+                  <option>APROVADO</option>
+                  <option>EM CORREÇÃO</option>
+                  <option>EM ANDAMENTO CONCESSIONÁRIA</option>
+                  <option>NOVO</option>
+                  <option>TRIAGEM</option>
+                  <option>PREVISÃO DE BOLETO</option>
+                  <option>AGUARDANDO PAGAMENTO</option>
+                  <option>EM TRATATIVA</option>
+                  <option>CORREÇÃO</option>
+                  <option>EM ELABORAÇÃO</option>
                 </select>
               </div>
               <div>
