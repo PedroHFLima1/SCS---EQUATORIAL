@@ -98,38 +98,6 @@ export function TriagemTable({ items }: TriagemTableProps) {
   const [obsModal, setObsModal] = useState<{isOpen: boolean, idSolicitacao: string, projeto: string | null, type: string} | null>(null);
   const [newObs, setNewObs] = useState('');
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, item: any) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('processId', item.id);
-    formData.append('module', 'TRIAGEM');
-
-    try {
-      const response = await fetch('/api/processes/upload-attachment', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        let errMessage = 'Falha no upload';
-        try {
-          const result = await response.json();
-          if (result.details) errMessage += ': ' + result.details;
-          else errMessage += ': ' + JSON.stringify(result);
-        } catch (e) {
-          errMessage += ' (Status: ' + response.status + ')';
-        }
-        throw new Error(errMessage);
-      }
-      showToast(`Anexo "${file.name}" salvo com sucesso no SharePoint!`);
-    } catch (error: any) {
-      console.error(error);
-      alert(error.message || 'Erro ao realizar upload do anexo');
-    }
-  };
-
   const handleSubmitObservation = async () => {
     if (!obsModal || !newObs.trim()) return;
     await handleSaveObservacao(obsModal.idSolicitacao, obsModal.projeto, newObs);
@@ -177,6 +145,22 @@ export function TriagemTable({ items }: TriagemTableProps) {
 
     return filtered;
   }, [localItems, role, company, activeTab]);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
+  // Reset pagination on tab change or filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, localItems]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredItems.slice(start, start + itemsPerPage);
+  }, [filteredItems, currentPage]);
 
   const handleCheckboxChange = (item: TriagemItem, field: string, currentValue: boolean) => {
     const newValue = !currentValue;
@@ -364,7 +348,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredItems.map((item, index) => {
+            {paginatedItems.map((item, index) => {
               const isFinalizado = item.statusTriagem === 'FINALIZADO';
               const isReprovado = item.statusTriagem === 'REPROVADO';
               const isFinished = isFinalizado || isReprovado;
@@ -491,6 +475,41 @@ export function TriagemTable({ items }: TriagemTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 rounded-b-xl">
+          <div className="text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-md text-slate-500 dark:text-slate-400">
+            Mostrando <span className="font-medium text-slate-700 dark:text-slate-300">{(currentPage - 1) * itemsPerPage + 1}</span> até <span className="font-medium text-slate-700 dark:text-slate-300">{Math.min(currentPage * itemsPerPage, filteredItems.length)}</span> de <span className="font-medium text-slate-700 dark:text-slate-300">{filteredItems.length}</span> entradas
+          </div>
+          <div className="flex gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="text-slate-600 dark:text-slate-400 h-8"
+            >
+              Anterior
+            </Button>
+            
+            <div className="flex items-center gap-1.5 px-2">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{currentPage}</span>
+              <span className="text-sm text-slate-400 dark:text-slate-500">de</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">{totalPages}</span>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="text-slate-600 dark:text-slate-400 h-8"
+            >
+              Próximo
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px] bg-white dark:bg-slate-950 border dark:border-slate-800 shadow-lg">

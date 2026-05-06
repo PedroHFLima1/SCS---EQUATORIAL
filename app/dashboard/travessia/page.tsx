@@ -281,7 +281,6 @@ export default function TravessiaPage() {
                   <option>TAXA</option>
                   <option>PROTOCOLADO</option>
                   <option>APROVADO</option>
-                  <option>EM CORREÇÃO</option>
                   <option>EM ANDAMENTO CONCESSIONÁRIA</option>
                   <option>NOVO</option>
                   <option>TRIAGEM</option>

@@ -62,7 +62,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     dataVencimento: '',
     tipo: '',
     rodovia: '',
-    km: ''
+    km: '',
+    taxa: 'NÃO'
   });
 
   // History Modal State
@@ -124,6 +125,12 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           pendenciaAmbiental: p.pendenciaAmbiental,
           pendenciaAnuencia: p.pendenciaAnuencia,
           pendenciaTravessia: p.pendenciaTravessia,
+          hasAnuencia: p.pendenciaAnuencia || p.statusAnuencia != null,
+          hasAmbiental: p.fluxoAmbiental?.toUpperCase() === 'SIM' || p.pendenciaAmbiental || p.statusAmbiental != null,
+          hasTravessia: p.fluxoTravessia?.toUpperCase() === 'SIM' || p.fluxoTravessiaLt?.toUpperCase() === 'SIM' || p.pendenciaTravessia || p.statusTravessia != null,
+          statusAnuencia: p.statusAnuencia ? new Set([p.statusAnuencia]) : new Set(),
+          statusAmbiental: p.statusAmbiental ? new Set([p.statusAmbiental]) : new Set(),
+          statusTravessia: p.statusTravessia ? new Set([p.statusTravessia]) : new Set(),
           observacaoInscricao: p.observacaoInscricao || '',
           firstProcess: { ...p, isLayer1: true }, // Keep reference to first process for actions, mark as layer1
           projetos: new Set()
@@ -133,6 +140,12 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         if (p.pendenciaAmbiental) entry.pendenciaAmbiental = true;
         if (p.pendenciaAnuencia) entry.pendenciaAnuencia = true;
         if (p.pendenciaTravessia) entry.pendenciaTravessia = true;
+        if (p.pendenciaAnuencia || p.statusAnuencia != null) entry.hasAnuencia = true;
+        if (p.fluxoAmbiental?.toUpperCase() === 'SIM' || p.pendenciaAmbiental || p.statusAmbiental != null) entry.hasAmbiental = true;
+        if (p.fluxoTravessia?.toUpperCase() === 'SIM' || p.fluxoTravessiaLt?.toUpperCase() === 'SIM' || p.pendenciaTravessia || p.statusTravessia != null) entry.hasTravessia = true;
+        if (p.statusAnuencia) entry.statusAnuencia.add(p.statusAnuencia);
+        if (p.statusAmbiental) entry.statusAmbiental.add(p.statusAmbiental);
+        if (p.statusTravessia) entry.statusTravessia.add(p.statusTravessia);
       }
       map.get(key).projetos.add(p.projeto);
     });
@@ -188,7 +201,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     
     // Get DB protocols
     const dbProtocols = processes
-      .filter(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto)
+      .filter(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto && p.protocol)
       .map(p => ({
         id: p.id,
         protocolo: p.protocol || '-',
@@ -196,11 +209,12 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         parceira: p.parceiraProjeto || p.partner,
         status: p.status,
         dataProtocolo: p.dataEnvioObra ? format(new Date(p.dataEnvioObra), 'dd/MM/yyyy') : '-',
-        valor: '-',
-        dataVencimento: '-',
-        tipo: '-',
-        rodovia: '-',
-        km: '-',
+        valor: p.valor || '-',
+        dataVencimento: p.dataVencimento ? format(new Date(p.dataVencimento + 'T12:00:00'), 'dd/MM/yyyy') : '-',
+        tipo: p.tipo || '-',
+        rodovia: p.rodovia || '-',
+        km: p.km || '-',
+        taxa: p.taxa || '-',
         isManual: false,
         process: p
       }));
@@ -222,22 +236,52 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       dataVencimento: '',
       tipo: '',
       rodovia: '',
-      km: ''
+      km: '',
+      taxa: 'NÃO'
     });
     setIsProtocolModalOpen(true);
   };
 
-  const handleSaveProtocol = (e: React.FormEvent) => {
+  const handleSaveProtocol = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newProtocol = {
-      id: `manual-${Date.now()}`,
-      inscricao: selectedInscricao,
-      projeto: selectedProjeto,
-      ...protocolForm,
-      isManual: true
-    };
-    setManualProtocolos([...manualProtocolos, newProtocol]);
-    setIsProtocolModalOpen(false);
+    if (!selectedInscricao || !selectedProjeto) return;
+
+    try {
+      const baseProcessId = processes.find(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto)?.id;
+
+      let savedId = `manual-${Date.now()}`;
+      if (baseProcessId) {
+        const res = await fetch('/api/protocol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            inscricao: selectedInscricao,
+            projeto: selectedProjeto,
+            baseProcessId,
+            moduleName,
+            ...protocolForm
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          savedId = data.id;
+        }
+      }
+
+      const newProtocol = {
+        id: savedId,
+        inscricao: selectedInscricao,
+        projeto: selectedProjeto,
+        ...protocolForm,
+        isManual: true
+      };
+      setManualProtocolos([...manualProtocolos, newProtocol]);
+      setIsProtocolModalOpen(false);
+      showSuccess('Protocolo adicionado com sucesso!');
+    } catch (error) {
+      console.error('Failed to create protocol', error);
+      alert('Erro ao adicionar protocolo');
+    }
   };
 
   const handleOpenHistory = async (inscricao: string) => {
@@ -257,43 +301,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   };
 
   const canCreateProtocol = role === 'ADMIN' || role === 'PARCEIRA';
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, process: any) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    let realModule = moduleName;
-    if (!realModule || realModule === 'admin' || realModule === 'parceira') {
-      realModule = process.module || 'TRIAGEM';
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('processId', process.id);
-    formData.append('module', realModule);
-
-    try {
-      const response = await fetch('/api/processes/upload-attachment', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!response.ok) {
-        let errMessage = 'Falha no upload';
-        try {
-          const result = await response.json();
-          if (result.details) errMessage += ': ' + result.details;
-          else errMessage += ': ' + JSON.stringify(result);
-        } catch (e) {
-          errMessage += ' (Status: ' + response.status + ')';
-        }
-        throw new Error(errMessage);
-      }
-      alert(`Anexo "${file.name}" salvo com sucesso e pasta SharePoint criada.`);
-    } catch (error: any) {
-      console.error(error);
-      alert(error.message || 'Erro ao realizar upload do anexo');
-    }
-  };
 
   const renderAcoes = (process: any) => {
     // Determine if it's layer 2 (projeto)
@@ -317,51 +324,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           >
             <MessageSquarePlus className="h-4 w-4" />
           </button>
-        )}
-        {isProjeto && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const baseUrl = "https://grupoequatorialenergia.sharepoint.com/sites/ExecutivaProjetoseFiscalizaoEQTLGO/Documentos%20Compartilhados/Forms/AllItems.aspx";
-              let sharepointUrl = '';
-
-              if (process.sharepointFolderId) {
-                if (process.sharepointFolderId.startsWith('http')) {
-                  sharepointUrl = process.sharepointFolderId;
-                } else {
-                  sharepointUrl = `${baseUrl}?id=${process.sharepointFolderId}&viewid=5af88566-c1c9-43c9-a2ee-47c2cd5a32ff`;
-                }
-              } else {
-                const baseId = "%2Fsites%2FExecutivaProjetoseFiscalizaoEQTLGO%2FDocumentos%20Compartilhados%2FExecutiva%20Projetos%20e%20Fiscaliza%C3%A7%C3%A3o%2FSCS%20%2D%20EMBARGOS";
-                let folderModule = moduleName;
-                if (!folderModule || folderModule === 'admin' || folderModule === 'parceira') {
-                  folderModule = process.module || 'TRIAGEM';
-                }
-                folderModule = folderModule.toUpperCase();
-                const targetId = `${baseId}%2F${folderModule}`;
-                sharepointUrl = `${baseUrl}?id=${targetId}&viewid=5af88566-c1c9-43c9-a2ee-47c2cd5a32ff`;
-              }
-              window.open(sharepointUrl, '_blank');
-            }}
-            className="text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 p-1"
-            title={`Abrir pasta SharePoint`}
-          >
-            <Paperclip className="h-4 w-4" />
-          </button>
-        )}
-        {isProjeto && (
-          <label
-            className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 cursor-pointer"
-            title="Adicionar Anexo"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <UploadCloud className="h-4 w-4" />
-            <input 
-              type="file" 
-              className="hidden" 
-              onChange={(e) => handleFileUpload(e, process)} 
-            />
-          </label>
         )}
         {handleSendEmail && (
           <button onClick={() => handleSendEmail(process)} className="text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 p-1" title="Enviar Email">
@@ -472,20 +434,28 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                 <thead className="bg-gray-50 dark:bg-gray-950/50 text-xs uppercase text-gray-500 dark:text-gray-400">
                   <tr>
                     <th className="px-6 py-3 font-medium">INSCRIÇÃO</th>
-                    {moduleName === 'admin' && (
+                    {moduleName === 'admin' ? (
                       <>
-                        <th className="px-4 py-3 font-medium text-center">AMBIENTAL</th>
-                        <th className="px-4 py-3 font-medium text-center">ANUÊNCIA</th>
-                        <th className="px-4 py-3 font-medium text-center">PASSAGEM</th>
+                        <th className="px-4 py-3 font-medium">ANUÊNCIA</th>
+                        <th className="px-4 py-3 font-medium">AMBIENTAL</th>
+                        <th className="px-4 py-3 font-medium">TRAVESSIA</th>
+                        <th className="px-6 py-3 font-medium">PARCEIRA</th>
+                        <th className="px-6 py-3 font-medium">MUNICÍPIO</th>
+                        <th className="px-6 py-3 font-medium">REGIONAL</th>
+                        <th className="px-6 py-3 font-medium">SLA</th>
+                        <th className="px-6 py-3 font-medium w-48">OBSERVAÇÕES</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
+                        <th className="px-6 py-3 font-medium">PARCEIRA</th>
+                        <th className="px-6 py-3 font-medium">MUNICÍPIO</th>
+                        <th className="px-6 py-3 font-medium">REGIONAL</th>
+                        <th className="px-6 py-3 font-medium">SUPERINTENDÊNCIA</th>
+                        <th className="px-6 py-3 font-medium">SLA</th>
+                        <th className="px-6 py-3 font-medium w-48">OBSERVAÇÕES</th>
                       </>
                     )}
-                    <th className="px-6 py-3 font-medium">STATUS {moduleName !== 'admin' && 'ATUAL'}</th>
-                    <th className="px-6 py-3 font-medium">PARCEIRA</th>
-                    <th className="px-6 py-3 font-medium">MUNICÍPIO</th>
-                    <th className="px-6 py-3 font-medium">REGIONAL</th>
-                    {moduleName !== 'admin' && <th className="px-6 py-3 font-medium">SUPERINTENDÊNCIA</th>}
-                    <th className="px-6 py-3 font-medium">SLA</th>
-                    <th className="px-6 py-3 font-medium w-48">OBSERVAÇÕES</th>
                     <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
                   </tr>
                 </thead>
@@ -497,68 +467,91 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       className="hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">{item.inscricao}</td>
-                      {moduleName === 'admin' && (
+                      {moduleName === 'admin' ? (
                         <>
-                          <td className="px-4 py-4 text-center">
-                            <div className="flex justify-center">
-                              {(() => {
-                                const needs = item.firstProcess.fluxoAmbiental?.toUpperCase() === 'SIM';
-                                if (!needs) return <span className="text-gray-400">-</span>;
-                                if (item.pendenciaAnuencia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-indigo-100 text-indigo-700">FILA ANUÊNCIA</span>;
-                                if (item.pendenciaAmbiental) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">EM ANÁLISE</span>;
-                                return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-800">CONCLUÍDO</span>;
-                              })()}
+                          <td className="px-4 py-4 align-top">
+                            {!item.hasAnuencia ? null : (
+                              <div className="flex flex-col gap-1 items-start">
+                                {Array.from(item.statusAnuencia).slice(0, 1).map((st: string) => (
+                                  <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+                                    {st}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 align-top">
+                            {!item.hasAmbiental ? null : (
+                              <div className="flex flex-col gap-1 items-start">
+                                {Array.from(item.statusAmbiental).slice(0, 1).map((st: string) => (
+                                  <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+                                    {st}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 align-top">
+                            {!item.hasTravessia ? null : (
+                              <div className="flex flex-col gap-1 items-start">
+                                {Array.from(item.statusTravessia).slice(0, 1).map((st: string) => (
+                                  <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+                                    {st}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 align-top">{item.parceira}</td>
+                          <td className="px-6 py-4 align-top">{item.municipio}</td>
+                          <td className="px-6 py-4 align-top">{item.regional}</td>
+                          <td className="px-6 py-4 align-top">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${getSlaColor(item.sla)}`}>
+                              {typeof item.sla === 'string' && item.sla.endsWith('d') ? item.sla : `${item.sla || 0}d`}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 align-top" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex flex-col gap-2 items-start">
+                              {item.observacaoInscricao ? (
+                                <span className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2" title={item.observacaoInscricao}>
+                                  &quot;{item.observacaoInscricao}&quot;
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
+                              )}
                             </div>
                           </td>
-                          <td className="px-4 py-4 text-center">
-                            <div className="flex justify-center">
-                              {(() => {
-                                const needs = item.firstProcess.fluxoPassagem?.toUpperCase() === 'SIM';
-                                if (!needs) return <span className="text-gray-400">-</span>;
-                                if (item.pendenciaAnuencia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">EM ANÁLISE</span>;
-                                return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-800">CONCLUÍDO</span>;
-                              })()}
-                            </div>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-4 align-top">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+                              {item.status}
+                            </span>
                           </td>
-                          <td className="px-4 py-4 text-center">
-                            <div className="flex justify-center">
-                              {(() => {
-                                const needs = item.firstProcess.fluxoTravessia?.toUpperCase() === 'SIM' || item.firstProcess.fluxoTravessiaLt?.toUpperCase() === 'SIM';
-                                if (!needs) return <span className="text-gray-400">-</span>;
-                                if (item.pendenciaAnuencia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-indigo-100 text-indigo-700">FILA ANUÊNCIA</span>;
-                                if (item.pendenciaTravessia) return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">EM ANÁLISE</span>;
-                                return <span className="rounded-full border px-2.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-800">CONCLUÍDO</span>;
-                              })()}
+                          <td className="px-6 py-4 align-top">{item.parceira}</td>
+                          <td className="px-6 py-4 align-top">{item.municipio}</td>
+                          <td className="px-6 py-4 align-top">{item.regional}</td>
+                          <td className="px-6 py-4 align-top">{item.superintendencia}</td>
+                          <td className="px-6 py-4 align-top">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${getSlaColor(item.sla)}`}>
+                              {typeof item.sla === 'string' && item.sla.endsWith('d') ? item.sla : `${item.sla || 0}d`}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 align-top" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex flex-col gap-2 items-start">
+                              {item.observacaoInscricao ? (
+                                <span className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2" title={item.observacaoInscricao}>
+                                  &quot;{item.observacaoInscricao}&quot;
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
+                              )}
                             </div>
                           </td>
                         </>
                       )}
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">{item.parceira}</td>
-                      <td className="px-6 py-4">{item.municipio}</td>
-                      <td className="px-6 py-4">{item.regional}</td>
-                      {moduleName !== 'admin' && <td className="px-6 py-4">{item.superintendencia}</td>}
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${getSlaColor(item.sla)}`}>
-                          {typeof item.sla === 'string' && item.sla.endsWith('d') ? item.sla : `${item.sla || 0}d`}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex flex-col gap-2 items-start">
-                          {item.observacaoInscricao ? (
-                            <span className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2" title={item.observacaoInscricao}>
-                              &quot;{item.observacaoInscricao}&quot;
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-gray-400 dark:text-gray-600 italic">Nenhuma observação</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center align-top">
                         {renderAcoes(item.firstProcess)}
                       </td>
                     </tr>
@@ -699,6 +692,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <th className="px-6 py-3 font-medium">TIPO</th>
                     <th className="px-6 py-3 font-medium">RODOVIA</th>
                     <th className="px-6 py-3 font-medium">KM</th>
+                    <th className="px-6 py-3 font-medium">TAXA?</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -721,6 +715,11 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       <td className="px-6 py-4">{item.tipo}</td>
                       <td className="px-6 py-4">{item.rodovia}</td>
                       <td className="px-6 py-4">{item.km}</td>
+                      <td className="px-6 py-4">
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${item.taxa === 'SIM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
+                          {item.taxa}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                   {protocolos.length === 0 && (
@@ -757,7 +756,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       type="text"
                       required
                       value={protocolForm.protocolo || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value})}
+                      onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
                   </div>
@@ -782,7 +782,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       required
                       disabled={role === 'PARCEIRA'}
                       value={protocolForm.parceira || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value})}
+                      onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
                     />
                   </div>
@@ -817,7 +818,19 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       type="text"
                       required
                       value={protocolForm.valor || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, valor: e.target.value})}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, "");
+                        if (!val) {
+                          setProtocolForm({...protocolForm, valor: ''});
+                          return;
+                        }
+                        const numberVal = parseInt(val, 10) / 100;
+                        const formatted = new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(numberVal);
+                        setProtocolForm({...protocolForm, valor: formatted});
+                      }}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
                   </div>
@@ -853,7 +866,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       type="text"
                       required
                       value={protocolForm.rodovia || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value})}
+                      onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
                   </div>
@@ -863,9 +877,22 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       type="text"
                       required
                       value={protocolForm.km || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value})}
+                      onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Taxa?</label>
+                    <select
+                      required
+                      value={protocolForm.taxa || 'NÃO'}
+                      onChange={(e) => setProtocolForm({...protocolForm, taxa: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="SIM">SIM</option>
+                      <option value="NÃO">NÃO</option>
+                    </select>
                   </div>
                 </div>
               </div>

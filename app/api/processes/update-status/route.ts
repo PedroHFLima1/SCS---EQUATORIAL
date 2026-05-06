@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       tipo, 
       rodovia, 
       km,
+      taxa,
       flags // New: { pendenciaAnuencia?: boolean, pendenciaTravessia?: boolean, pendenciaAmbiental?: boolean }
     } = body;
     
@@ -97,10 +98,12 @@ export async function POST(request: Request) {
         } else {
           dataToUpdate.status = status;
         }
-        if (module === 'anuencia') dataToUpdate.statusAnuencia = status;
-        if (module === 'ambiental') dataToUpdate.statusAmbiental = status;
-        if (module === 'travessia') dataToUpdate.statusTravessia = status;
       }
+
+      // Always update specific module status
+      if (module === 'anuencia') dataToUpdate.statusAnuencia = status;
+      if (module === 'ambiental') dataToUpdate.statusAmbiental = status;
+      if (module === 'travessia') dataToUpdate.statusTravessia = status;
       
       if (protocol !== undefined) dataToUpdate.protocol = protocol;
       if (valor !== undefined) dataToUpdate.valor = valor;
@@ -108,6 +111,7 @@ export async function POST(request: Request) {
       if (tipo !== undefined) dataToUpdate.tipo = tipo;
       if (rodovia !== undefined) dataToUpdate.rodovia = rodovia;
       if (km !== undefined) dataToUpdate.km = km;
+      if (taxa !== undefined) dataToUpdate.taxa = taxa;
       
       // Apply explicit flags if provided
       if (flags) {

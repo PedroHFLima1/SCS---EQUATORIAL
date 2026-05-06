@@ -66,6 +66,7 @@ model Process {
   tipo                String?
   rodovia             String?
   km                  String?
+  taxa                String?
   sla                 String?
   sharepointFolderId  String?
   module              String   @default("travessia")

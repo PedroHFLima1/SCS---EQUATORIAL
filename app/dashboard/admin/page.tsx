@@ -17,6 +17,19 @@ const getSlaColor = (sla: number | string) => {
   return 'bg-red-100 text-red-700';
 };
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export default function AdminPage() {
   const { isAdmin, email } = useAuth();
   const { socket } = useSocket();
@@ -91,6 +104,11 @@ export default function AdminPage() {
   const [auditSearch, setAuditSearch] = useState('');
   const [searchInscricao, setSearchInscricao] = useState('');
   const [searchProjeto, setSearchProjeto] = useState('');
+
+  const debouncedAuditSearch = useDebounce(auditSearch, 300);
+  const debouncedSearchInscricao = useDebounce(searchInscricao, 300);
+  const debouncedSearchProjeto = useDebounce(searchProjeto, 300);
+
   const [statusInscricaoFilter, setStatusInscricaoFilter] = useState('Todas as Fases');
   const [statusProjetoFilter, setStatusProjetoFilter] = useState('Todas as Fases');
   const [concessionariaFilter, setConcessionariaFilter] = useState('Todas');
@@ -190,23 +208,23 @@ export default function AdminPage() {
     let result = Array.isArray(processes) ? processes : [];
 
     // Global Search
-    if (auditSearch) {
-      const lowerSearch = auditSearch.toLowerCase();
+    if (debouncedAuditSearch) {
+      const lowerSearch = debouncedAuditSearch.toLowerCase();
       result = result.filter(p => 
-        p.inscricao.toLowerCase().includes(lowerSearch) || 
-        p.projeto.toLowerCase().includes(lowerSearch) || 
-        p.protocol.toLowerCase().includes(lowerSearch) ||
-        p.concessionaria.toLowerCase().includes(lowerSearch) ||
-        p.partner.toLowerCase().includes(lowerSearch)
+        (p.inscricao && p.inscricao.toLowerCase().includes(lowerSearch)) || 
+        (p.projeto && p.projeto.toLowerCase().includes(lowerSearch)) || 
+        (p.protocol && p.protocol.toLowerCase().includes(lowerSearch)) ||
+        (p.concessionaria && p.concessionaria.toLowerCase().includes(lowerSearch)) ||
+        (p.partner && p.partner.toLowerCase().includes(lowerSearch))
       );
     }
 
     // Specific Filters
-    if (searchInscricao) {
-      result = result.filter(p => p.inscricao.toLowerCase().includes(searchInscricao.toLowerCase()));
+    if (debouncedSearchInscricao) {
+      result = result.filter(p => p.inscricao && p.inscricao.toLowerCase().includes(debouncedSearchInscricao.toLowerCase()));
     }
-    if (searchProjeto) {
-      result = result.filter(p => p.projeto.toLowerCase().includes(searchProjeto.toLowerCase()));
+    if (debouncedSearchProjeto) {
+      result = result.filter(p => p.projeto && p.projeto.toLowerCase().includes(debouncedSearchProjeto.toLowerCase()));
     }
     if (statusInscricaoFilter !== 'Todas as Fases') {
       result = result.filter(p => (p.statusInscricao || p.status) === statusInscricaoFilter);
@@ -235,7 +253,7 @@ export default function AdminPage() {
     });
 
     return result;
-  }, [processes, auditSearch, searchInscricao, searchProjeto, statusInscricaoFilter, statusProjetoFilter, concessionariaFilter, parceiraFilter, sortBy]);
+  }, [processes, debouncedAuditSearch, debouncedSearchInscricao, debouncedSearchProjeto, statusInscricaoFilter, statusProjetoFilter, concessionariaFilter, parceiraFilter, sortBy]);
 
   if (!isAdmin) {
     return (
