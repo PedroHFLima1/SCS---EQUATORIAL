@@ -77,14 +77,6 @@ export function ProcessTreatmentModal({
     return approvalStatuses.includes(status);
   };
 
-  // Format as Brazilian Real (R$ x.xxx,xx)
-  const formatCurrency = (val: string) => {
-    let numbers = val.replace(/\D/g, '');
-    if (!numbers) return '';
-    const amount = parseInt(numbers, 10) / 100;
-    return amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-
   const handleNext = () => {
     if (isApprovalStatus(newStatus)) {
       // Logic for approval:
@@ -227,7 +219,7 @@ export function ProcessTreatmentModal({
                     <input
                       type="text"
                       value={protocol}
-                      onChange={(e) => setProtocol(e.target.value.toUpperCase())}
+                      onChange={(e) => setProtocol(e.target.value)}
                       className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
                     />
                   </div>
@@ -236,7 +228,7 @@ export function ProcessTreatmentModal({
                     <input
                       type="text"
                       value={valor}
-                      onChange={(e) => setValor(formatCurrency(e.target.value))}
+                      onChange={(e) => setValor(e.target.value)}
                       className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
                     />
                   </div>
@@ -254,7 +246,7 @@ export function ProcessTreatmentModal({
                     <input
                       type="text"
                       value={tipo}
-                      onChange={(e) => setTipo(e.target.value.toUpperCase())}
+                      onChange={(e) => setTipo(e.target.value)}
                       className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
                     />
                   </div>
@@ -263,7 +255,7 @@ export function ProcessTreatmentModal({
                     <input
                       type="text"
                       value={rodovia}
-                      onChange={(e) => setRodovia(e.target.value.toUpperCase())}
+                      onChange={(e) => setRodovia(e.target.value)}
                       className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
                     />
                   </div>
@@ -272,7 +264,7 @@ export function ProcessTreatmentModal({
                     <input
                       type="text"
                       value={km}
-                      onChange={(e) => setKm(e.target.value.toUpperCase())}
+                      onChange={(e) => setKm(e.target.value)}
                       className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
                     />
                   </div>

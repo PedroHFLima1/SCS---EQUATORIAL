@@ -52,35 +52,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       console.error('Failed to save observation', error);
     }
   };
-
-  const handleProtocolStatusChange = async (protocolId: string | undefined, newStatus: string, isManual: boolean) => {
-    if (isManual || !protocolId) {
-      showSuccess("Protocolos manuais ainda não editáveis nesta visualização.");
-      return;
-    }
-    try {
-      const res = await fetch('/api/processes/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: protocolId,
-          status: newStatus,
-          user: userName || role || 'Admin'
-        })
-      });
-      if (res.ok) {
-        showSuccess(`Status alterado para ${newStatus}`);
-        // Optionally reload to ensure state syncs if WS does not cover it
-        setTimeout(() => window.location.reload(), 1000);
-      } else {
-        alert("Erro ao alterar status");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao alterar status");
-    }
-  };
-
   const [protocolForm, setProtocolForm] = useState({
     protocolo: '',
     concessionaria: '',
@@ -259,7 +230,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       protocolo: '',
       concessionaria: '',
       parceira: role === 'PARCEIRA' ? (company || '') : (projetos[0]?.parceira || ''),
-      status: 'PROTOCOLADO',
+      status: 'NOVO',
       dataProtocolo: '',
       valor: '',
       dataVencimento: '',
@@ -734,15 +705,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       <td className="px-6 py-4">{item.concessionaria}</td>
                       <td className="px-6 py-4">{item.parceira}</td>
                       <td className="px-6 py-4">
-                        <select
-                          value={item.status}
-                          onChange={(e) => handleProtocolStatusChange(item.id, e.target.value, item.isManual)}
-                          className={`rounded-full border px-2.5 py-0.5 text-xs font-medium cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}
-                        >
-                          <option value="PROTOCOLADO" className="bg-white text-black">PROTOCOLADO</option>
-                          <option value="APROVADO" className="bg-white text-black">APROVADO</option>
-                          <option value="CANCELADO" className="bg-white text-black">CANCELADO</option>
-                        </select>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                          {item.status}
+                        </span>
                       </td>
                       <td className="px-6 py-4">{item.dataProtocolo}</td>
                       <td className="px-6 py-4">{item.valor}</td>
@@ -830,9 +795,11 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
-                      <option value="PROTOCOLADO">PROTOCOLADO</option>
-                      <option value="APROVADO">APROVADO</option>
-                      <option value="CANCELADO">CANCELADO</option>
+                      <option>NOVO</option>
+                      <option>TRIAGEM</option>
+                      <option>CORREÇÃO</option>
+                      <option>PROTOCOLADO</option>
+                      <option>APROVADO</option>
                     </select>
                   </div>
                   <div>

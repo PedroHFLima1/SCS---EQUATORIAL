@@ -1,463 +1,451 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  ShieldCheck, 
-  ArrowRightLeft, 
-  FileText, 
-  ClipboardList, 
-  CheckCircle2, 
-  Clock, 
-  XSquare, 
-  AlertCircle,
-  Plus,
-  RefreshCw
-} from 'lucide-react';
-import { 
-  AnuenciaInscriptionStatus, 
-  AnuenciaProjectStatus, 
-  TravessiaInscriptionStatus, 
-  TravessiaProjectStatus, 
-  TravessiaProtocolStatus,
-  calculateAnuenciaInscriptionStatus,
-  calculateTravessiaProjectStatus,
-  calculateTravessiaInscriptionStatus
-} from '@/lib/status-logic';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { EyeOff, Moon, Sun, Loader2, Key } from 'lucide-react';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
+import { useAuth } from '@/app/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
-// --- Types ---
-interface AnuenciaProject {
-  id: string;
-  name: string;
-  status: AnuenciaProjectStatus;
-}
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const { role, user, loading: authLoading } = useAuth();
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'code'>('email');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
 
-interface AnuenciaInscription {
-  id: string;
-  name: string;
-  status: AnuenciaInscriptionStatus;
-  projects: AnuenciaProject[];
-}
+  const [isManualLogin, setIsManualLogin] = useState(false);
 
-interface TravessiaProtocol {
-  id: string;
-  name: string;
-  status: TravessiaProtocolStatus;
-}
+  useEffect(() => {
+    setMounted(true);
+    // Force logout when visiting the login page to ensure the user must log in again
+    const forceLogout = async () => {
+      await supabase.auth.signOut();
+    };
+    forceLogout();
+  }, []);
 
-interface TravessiaProject {
-  id: string;
-  name: string;
-  status: TravessiaProjectStatus;
-  protocols: TravessiaProtocol[];
-}
-
-interface TravessiaInscription {
-  id: string;
-  name: string;
-  status: TravessiaInscriptionStatus;
-  projects: TravessiaProject[];
-}
-
-// --- Initial Data ---
-const initialAnuencia: AnuenciaInscription[] = [
-  {
-    id: 'A1',
-    name: 'Inscrição 001/2024',
-    status: AnuenciaInscriptionStatus.NAO_INICIADO,
-    projects: [
-      { id: 'AP1', name: 'Ambiental - Torre 01', status: AnuenciaProjectStatus.NOVO },
-      { id: 'AP2', name: 'Estrutural - Torre 01', status: AnuenciaProjectStatus.NOVO },
-    ]
-  }
-];
-
-const initialTravessia: TravessiaInscription[] = [
-  {
-    id: 'T1',
-    name: 'Travessia Rio Tocantins',
-    status: TravessiaInscriptionStatus.NAO_INICIADO,
-    projects: [
-      { 
-        id: 'TP1', 
-        name: 'Obra 12 - Subterrânea', 
-        status: TravessiaProjectStatus.NOVO,
-        protocols: [
-          { id: 'TPR1', name: 'Licença Pref. 04', status: TravessiaProtocolStatus.PROTOCOLADO },
-        ]
+  useEffect(() => {
+    // Only redirect if the user manually logged in during this session
+    if (isManualLogin && user && !authLoading) {
+      if (role === 'ADMIN') {
+        router.push('/dashboard/admin');
+      } else if (role === 'GESTOR_AMBIENTAL') {
+        router.push('/dashboard/ambiental');
+      } else if (role === 'GESTOR_ANUENCIA') {
+        router.push('/dashboard/anuencia');
+      } else if (role === 'GESTOR_TRAVESSIA') {
+        router.push('/dashboard/travessia');
+      } else {
+        // Fallback or for PARCEIRA
+        router.push('/dashboard/travessia');
       }
-    ]
-  }
-];
-
-export default function StatusManager() {
-  const [activeTab, setActiveTab] = useState<'ANUENCIA' | 'TRAVESSIA'>('ANUENCIA');
-  const [anuenciaData, setAnuenciaData] = useState<AnuenciaInscription[]>(initialAnuencia);
-  const [travessiaData, setTravessiaData] = useState<TravessiaInscription[]>(initialTravessia);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['A1', 'T1', 'TP1']));
-
-  const toggleExpand = (id: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(id)) newExpanded.delete(id);
-    else newExpanded.add(id);
-    setExpandedItems(newExpanded);
-  };
-
-  // --- ANUENCIA Handlers ---
-  const updateAnuenciaProjectStatus = (insId: string, projId: string, newStatus: AnuenciaProjectStatus) => {
-    setAnuenciaData(prev => prev.map(ins => {
-      if (ins.id !== insId) return ins;
-      const updatedProjects = ins.projects.map(p => p.id === projId ? { ...p, status: newStatus } : p);
-      const calculatedStatus = calculateAnuenciaInscriptionStatus(
-        ins.status,
-        updatedProjects.map(p => p.status)
-      );
-      return { ...ins, projects: updatedProjects, status: calculatedStatus };
-    }));
-  };
-
-  const addAnuenciaProject = (insId: string) => {
-    setAnuenciaData(prev => prev.map(ins => {
-      if (ins.id !== insId) return ins;
-      const newProj: AnuenciaProject = {
-        id: `AP${Math.random().toString(36).substr(2, 4)}`,
-        name: `Novo Projeto ${ins.projects.length + 1}`,
-        status: AnuenciaProjectStatus.NOVO
-      };
-      const updatedProjects = [...ins.projects, newProj];
-      return { ...ins, projects: updatedProjects };
-    }));
-  };
-
-  // --- TRAVESSIA Handlers ---
-  const updateTravessiaProtocolStatus = (insId: string, projId: string, protoId: string, newStatus: TravessiaProtocolStatus) => {
-    setTravessiaData(prev => prev.map(ins => {
-      if (ins.id !== insId) return ins;
-      const updatedProjects = ins.projects.map(p => {
-        if (p.id !== projId) return p;
-        const updatedProtocols = p.protocols.map(pr => pr.id === protoId ? { ...pr, status: newStatus } : pr);
-        const newProjStatus = calculateTravessiaProjectStatus(p.status, updatedProtocols.map(pr => pr.status));
-        return { ...p, protocols: updatedProtocols, status: newProjStatus };
-      });
-      const newInsStatus = calculateTravessiaInscriptionStatus(ins.status, updatedProjects.map(p => p.status));
-      return { ...ins, projects: updatedProjects, status: newInsStatus };
-    }));
-  };
-
-  const updateTravessiaProjectStatusManually = (insId: string, projId: string, newStatus: TravessiaProjectStatus) => {
-    setTravessiaData(prev => prev.map(ins => {
-        if (ins.id !== insId) return ins;
-        const updatedProjects = ins.projects.map(p => p.id === projId ? { ...p, status: newStatus } : p);
-        const newInsStatus = calculateTravessiaInscriptionStatus(ins.status, updatedProjects.map(p => p.status));
-        return { ...ins, projects: updatedProjects, status: newInsStatus };
-    }));
-  }
-
-  const addTravessiaProtocol = (insId: string, projId: string) => {
-    setTravessiaData(prev => prev.map(ins => {
-      if (ins.id !== insId) return ins;
-      const updatedProjects = ins.projects.map(p => {
-        if (p.id !== projId) return p;
-        const newProto: TravessiaProtocol = {
-          id: `TPR${Math.random().toString(36).substr(2, 4)}`,
-          name: `Protocolo ${p.protocols.length + 1}`,
-          status: TravessiaProtocolStatus.PROTOCOLADO
-        };
-        return { ...p, protocols: [...p.protocols, newProto] };
-      });
-      return { ...ins, projects: updatedProjects };
-    }));
-  };
-
-  // --- UI Components ---
-  const StatusBadge = ({ status }: { status: string }) => {
-    let colors = "bg-slate-100 text-slate-700";
-    let Icon = Clock;
-
-    if (status === 'APROVADO' || status === 'ATENDIDO') {
-      colors = "bg-emerald-100 text-emerald-700 border-emerald-200";
-      Icon = CheckCircle2;
-    } else if (status === 'EM ANDAMENTO' || status.includes('PROTOCOLADO') || status === 'TAXA' || status.includes('CONCESSIONÁRIA')) {
-      colors = "bg-blue-100 text-blue-700 border-blue-200";
-      Icon = RefreshCw;
-    } else if (status === 'CANCELADO' || status === 'NEGADO' || status === 'DUP') {
-      colors = "bg-rose-100 text-rose-700 border-rose-200";
-      Icon = XSquare;
-    } else {
-      colors = "bg-amber-100 text-amber-700 border-amber-200";
-      Icon = AlertCircle;
     }
+  }, [user, role, authLoading, router, isManualLogin]);
 
-    return (
-      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 border ${colors}`}>
-        <Icon size={12} className={status === 'EM ANDAMENTO' ? 'animate-spin-slow' : ''} />
-        {status}
-      </span>
-    );
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    setIsManualLogin(true);
+
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        setIsManualLogin(false);
+      }
+      // The redirect will be handled by the useEffect watching `user` and `role`
+    } catch (err) {
+      setError('Ocorreu um erro inesperado. Tente novamente.');
+      setIsManualLogin(false);
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotMessage('');
+    setIsForgotLoading(true);
+
+    try {
+      const { requestPasswordReset } = await import('@/app/actions/users');
+      const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const result = await requestPasswordReset(forgotEmail, origin);
+      
+      if (result.error) {
+        setForgotError(result.error);
+      } else {
+        setForgotMessage('Verifique seu e-mail para obter o código ou link de redefinição.');
+        setForgotStep('code');
+      }
+    } catch (err) {
+      setForgotError('Ocorreu um erro inesperado.');
+    } finally {
+      setIsForgotLoading(false);
+    }
+  };
+
+  const handleResetWithCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setIsForgotLoading(true);
+
+    try {
+      if (forgotNewPassword.length < 6) {
+        setForgotError('A senha deve ter pelo menos 6 caracteres.');
+        return;
+      }
+
+      let parsedToken = forgotCode.trim();
+      let type: 'recovery' | 'magiclink' = 'recovery';
+
+      // Verifica se o usuário colou a URL inteira do tipo localhost:3000/#access_token=... ou um token gigante (hashed)
+      // O Supabase às vezes gera um link com `token=...` ou usa Implicit Flow com `#access_token=...`
+      if (parsedToken.includes('access_token=')) {
+        const urlParams = new URLSearchParams(
+          parsedToken.includes('#') ? parsedToken.substring(parsedToken.indexOf('#') + 1) : parsedToken
+        );
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+        
+        if (accessToken && refreshToken) {
+          // Se colou o link com session, fazemos set da session direto
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (sessionError) {
+            setForgotError('Link inválido ou expirado.');
+            return;
+          }
+          
+          const { error: updateError } = await supabase.auth.updateUser({
+            password: forgotNewPassword
+          });
+
+          if (updateError) {
+            setForgotError(updateError.message);
+            return;
+          }
+
+          setForgotMessage('Senha redefinida com sucesso! Redirecionando...');
+          await supabase.auth.signOut();
+          
+          setTimeout(() => {
+            setIsForgotModalOpen(false);
+            setForgotStep('email');
+            setForgotEmail('');
+            setForgotCode('');
+            setForgotNewPassword('');
+            setForgotMessage('');
+          }, 3000);
+          return;
+        }
+      } else if (parsedToken.includes('token=')) {
+         const urlParams = new URLSearchParams(
+          parsedToken.includes('?') ? parsedToken.substring(parsedToken.indexOf('?') + 1) : parsedToken
+        );
+        const tokenToken = urlParams.get('token');
+        if (tokenToken) {
+           parsedToken = tokenToken;
+        }
+      }
+
+      // Verificação normal de Token/OTP (6 dígitos) ou Token Hash
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: forgotEmail,
+        token: parsedToken,
+        type: 'recovery'
+      });
+
+      if (verifyError) {
+        setForgotError('Código ou link inválido ou expirado.');
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: forgotNewPassword
+      });
+
+      if (updateError) {
+        setForgotError(updateError.message);
+        return;
+      }
+
+      setForgotMessage('Senha redefinida com sucesso! Redirecionando...');
+      await supabase.auth.signOut();
+      
+      setTimeout(() => {
+        setIsForgotModalOpen(false);
+        setForgotStep('email');
+        setForgotEmail('');
+        setForgotCode('');
+        setForgotNewPassword('');
+        setForgotMessage('');
+      }, 3000);
+      
+    } catch (err) {
+      setForgotError('Ocorreu um erro inesperado.');
+    } finally {
+      setIsForgotLoading(false);
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-gray-950">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans p-6 md:p-12">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <header className="mb-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-600 rounded-lg text-white">
-              <ShieldCheck size={28} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 leading-none">Gestão de Ativos</h1>
-              <p className="text-slate-500 text-sm mt-1">Hierarquia & Transição de Status (Equatorial)</p>
-            </div>
-          </div>
-        </header>
-
-        {/* Tab Selection */}
-        <div className="flex p-1 bg-slate-200/50 rounded-xl w-fit mb-8 border border-white/50 shadow-sm">
-          <button 
-            onClick={() => setActiveTab('ANUENCIA')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${activeTab === 'ANUENCIA' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-          >
-            <ClipboardList size={18} />
-            Módulo ANUENCIA
-          </button>
-          <button 
-            onClick={() => setActiveTab('TRAVESSIA')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${activeTab === 'TRAVESSIA' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-          >
-            <ArrowRightLeft size={18} />
-            Módulo TRAVESSIA
-          </button>
+    <div className="flex min-h-screen bg-white dark:bg-gray-950 transition-colors duration-200">
+      {/* Left Side - Image */}
+      <div className="relative hidden w-1/2 lg:block">
+        <Image
+          src="https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=2000&auto=format&fit=crop"
+          alt="Torre de Transmissão de Energia"
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-12">
+          <h2 className="text-3xl font-bold text-white mb-2">Energia que move o futuro</h2>
+          <p className="text-lg font-medium text-gray-200">Excelência em infraestrutura e distribuição.</p>
         </div>
-
-        {/* Content Area */}
-        <div className="space-y-6">
-          <AnimatePresence mode="wait">
-            {activeTab === 'ANUENCIA' ? (
-              <motion.div 
-                key="anuencia"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-4"
-              >
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Hierarquia: Inscrição {'>'} Projeto</span>
-                    <button className="text-xs text-blue-600 font-medium hover:underline flex items-center gap-1">
-                      <Plus size={14} /> Nova Inscrição
-                    </button>
-                  </div>
-
-                  {anuenciaData.map(ins => (
-                    <div key={ins.id} className="border-b last:border-0 border-slate-100">
-                      <div 
-                        className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors"
-                        onClick={() => toggleExpand(ins.id)}
-                      >
-                        <div className="flex items-center gap-4">
-                          {expandedItems.has(ins.id) ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronRight size={20} className="text-slate-400" />}
-                          <div>
-                            <h3 className="font-semibold text-slate-800">{ins.name}</h3>
-                            <p className="text-xs text-slate-400 font-mono tracking-tighter">ID: {ins.id}</p>
-                          </div>
-                        </div>
-                        <StatusBadge status={ins.status} />
-                      </div>
-
-                      <AnimatePresence>
-                        {expandedItems.has(ins.id) && (
-                          <motion.div 
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden bg-slate-50/30 px-5 pb-5 pt-0"
-                          >
-                            <div className="ml-9 border-l-2 border-slate-100 pl-6 space-y-3">
-                              {ins.projects.map(proj => (
-                                <div key={proj.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200/60 shadow-sm">
-                                  <div className="flex items-center gap-3">
-                                    <FileText size={16} className="text-slate-400" />
-                                    <span className="text-sm font-medium text-slate-700">{proj.name}</span>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <StatusBadge status={proj.status} />
-                                    <select 
-                                      value={proj.status}
-                                      onChange={(e) => updateAnuenciaProjectStatus(ins.id, proj.id, e.target.value as AnuenciaProjectStatus)}
-                                      className="text-xs border-none bg-slate-100 rounded px-2 py-1 outline-none text-slate-600 font-medium cursor-pointer hover:bg-slate-200 transition-colors"
-                                    >
-                                      {Object.values(AnuenciaProjectStatus).map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                </div>
-                              ))}
-                              <button 
-                                onClick={() => addAnuenciaProject(ins.id)}
-                                className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors mt-2"
-                              >
-                                <Plus size={14} /> Adicionar Projeto
-                              </button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div 
-                key="travessia"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-4"
-              >
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Hierarquia: Inscrição {'>'} Projeto {'>'} Protocolo</span>
-                  </div>
-
-                  {travessiaData.map(ins => (
-                    <div key={ins.id} className="border-b last:border-0 border-slate-100">
-                      <div 
-                        className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50/50"
-                        onClick={() => toggleExpand(ins.id)}
-                      >
-                        <div className="flex items-center gap-4">
-                          {expandedItems.has(ins.id) ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronRight size={20} className="text-slate-400" />}
-                          <div>
-                            <h3 className="font-semibold text-slate-800">{ins.name}</h3>
-                            <p className="text-xs text-slate-400 font-mono tracking-tighter">ID: {ins.id}</p>
-                          </div>
-                        </div>
-                        <StatusBadge status={ins.status} />
-                      </div>
-
-                      <AnimatePresence>
-                        {expandedItems.has(ins.id) && (
-                          <motion.div 
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="bg-slate-50/30 px-5 pb-5 pt-0 overflow-hidden"
-                          >
-                            <div className="ml-9 border-l-2 border-slate-100 pl-6 space-y-4 pt-2">
-                              {ins.projects.map(proj => (
-                                <div key={proj.id} className="space-y-3">
-                                  <div 
-                                    className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200/60 shadow-sm cursor-pointer hover:border-blue-200 transition-colors"
-                                    onClick={() => toggleExpand(proj.id)}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      {expandedItems.has(proj.id) ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
-                                      <span className="text-sm font-bold text-slate-700">{proj.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <StatusBadge status={proj.status} />
-                                      <select 
-                                        value={proj.status}
-                                        onClick={(e) => e.stopPropagation()}
-                                        onChange={(e) => updateTravessiaProjectStatusManually(ins.id, proj.id, e.target.value as TravessiaProjectStatus)}
-                                        className="text-[10px] border-none bg-slate-100 rounded px-1.5 py-0.5 outline-none text-slate-500 font-bold uppercase tracking-tight cursor-pointer"
-                                      >
-                                        {Object.values(TravessiaProjectStatus).map(s => (
-                                          <option key={s} value={s}>{s}</option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  </div>
-
-                                  <AnimatePresence>
-                                    {expandedItems.has(proj.id) && (
-                                      <motion.div 
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: 'auto', opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="ml-6 border-l-2 border-slate-200/50 pl-5 space-y-2 overflow-hidden"
-                                      >
-                                        {proj.protocols.map(proto => (
-                                          <div key={proto.id} className="flex items-center justify-between text-xs p-2.5 bg-slate-200/20 rounded-lg border border-transparent hover:border-slate-300 transition-all">
-                                            <div className="flex items-center gap-2 text-slate-600">
-                                              <ArrowRightLeft size={14} className="text-slate-300" />
-                                              {proto.name}
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                              <StatusBadge status={proto.status} />
-                                              <select 
-                                                value={proto.status}
-                                                onChange={(e) => updateTravessiaProtocolStatus(ins.id, proj.id, proto.id, e.target.value as TravessiaProtocolStatus)}
-                                                className="text-[9px] font-bold border-none bg-white rounded px-1 py-0.5 outline-none text-blue-600"
-                                              >
-                                                {Object.values(TravessiaProtocolStatus).map(s => (
-                                                  <option key={s} value={s}>{s}</option>
-                                                ))}
-                                              </select>
-                                            </div>
-                                          </div>
-                                        ))}
-                                        <button 
-                                          onClick={() => addTravessiaProtocol(ins.id, proj.id)}
-                                          className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-blue-500 transition-colors ml-1"
-                                        >
-                                          <Plus size={12} /> NOVO PROTOCOLO
-                                        </button>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
-                                </div>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Footer Info */}
-        <section className="mt-12 p-6 bg-blue-900 text-blue-100 rounded-3xl shadow-xl border border-blue-800 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <ShieldCheck size={120} />
-          </div>
-          <div className="relative z-10">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <AlertCircle size={20} /> Regras de Negócio Aplicadas
-            </h2>
-            <div className="grid md:grid-cols-2 gap-8 text-sm opacity-90">
-              <div className="space-y-2">
-                <h3 className="font-bold border-b border-blue-700 pb-1 mb-2">ANUENCIA</h3>
-                <p>• <span className="font-bold text-white">APROVADO:</span> Se TODOS os projetos forem &quot;ATENDIDO&quot;.</p>
-                <p>• <span className="font-bold text-white">EM ANDAMENTO:</span> Se pelo menos UM projeto for &quot;NEGADO&quot; ou &quot;DUP&quot;.</p>
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-bold border-b border-blue-700 pb-1 mb-2">TRAVESSIA</h3>
-                <p>• <span className="font-bold text-white">PROJETO APROVADO:</span> Se TODOS os protocolos forem &quot;APROVADO&quot;.</p>
-                <p>• <span className="font-bold text-white">INSCRIÇÃO EM ANDAMENTO:</span> Se UM projeto for &quot;PROTOCOLADO&quot;, &quot;TAXA&quot;, etc.</p>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
 
-      <style jsx global>{`
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 3s linear infinite;
-        }
-      `}</style>
+      {/* Right Side - Form */}
+      <div className="flex w-full flex-col justify-center px-8 lg:w-1/2 lg:px-24">
+        {mounted && (
+          <div className="absolute right-8 top-8 flex items-center space-x-2 rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 transition-colors">
+            <span className="text-sm text-gray-600 dark:text-gray-300">
+              {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+            </span>
+            <div 
+              onClick={toggleTheme}
+              className={`flex h-6 w-10 cursor-pointer items-center rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}
+            >
+              <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0'}`}></div>
+            </div>
+            {theme === 'dark' ? <Moon className="h-4 w-4 text-gray-400" /> : <Sun className="h-4 w-4 text-gray-500" />}
+          </div>
+        )}
+
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-8 flex items-center text-4xl font-bold">
+            <span className="text-yellow-500">SCS</span>
+            <span className="ml-2 text-gray-800 dark:text-gray-100 font-light">Equatorial</span>
+          </div>
+
+          <h1 className="mb-2 text-3xl font-semibold text-gray-900 dark:text-white">Acesso Corporativo</h1>
+          <p className="mb-8 text-gray-600 dark:text-gray-400">Acesso seguro ao sistema de controle de projetos SCS.</p>
+
+          <form onSubmit={handleSignIn} className="space-y-6">
+            {error && (
+              <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-4">
+                <div className="flex">
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                      Erro ao fazer login
+                    </h3>
+                    <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                      <p>{error === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">
+                Endereço de E-mail Corporativo
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nome@empresa.com"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-blue-50/50 dark:bg-gray-900 px-4 py-2 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                required
+                disabled={isLoading}
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Domínios aceitos: @equatorialenergia.com.br, @applus.com ou @afaplan.com
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Senha</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Digite sua senha"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 px-4 py-2 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <EyeOff className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-2 text-right">
+                <button 
+                  type="button" 
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Esqueceu a Senha?
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center items-center rounded-md bg-[#0056b3] dark:bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 dark:hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-950 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                'Entrar'
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Forgot Password Modal */}
+      {isForgotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4 mx-auto">
+                <Key className="h-6 w-6 text-blue-600 dark:text-blue-500" />
+              </div>
+              <h3 className="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">Redefinir Senha</h3>
+              <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
+                {forgotStep === 'email' 
+                  ? 'Informe seu e-mail corporativo para receber um código ou link de redefinição de senha.'
+                  : 'Insira o código de 6 dígitos que chegou no email. Se chegou um link como localhost, copie o link inteiro e cole-o aqui.'}
+              </p>
+
+              <form onSubmit={forgotStep === 'email' ? handleForgotPassword : handleResetWithCode} className="space-y-4">
+                {forgotError && (
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-300">
+                    {forgotError}
+                  </div>
+                )}
+                {forgotMessage && (
+                  <div className="rounded-md bg-green-50 dark:bg-green-900/30 p-3 text-sm text-green-700 dark:text-green-300">
+                    {forgotMessage}
+                  </div>
+                )}
+                
+                {forgotStep === 'email' ? (
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">E-mail</label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="nome@empresa.com"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
+                      required
+                      disabled={isForgotLoading}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Código ou Link Copiado</label>
+                      <input
+                        type="text"
+                        value={forgotCode}
+                        onChange={(e) => setForgotCode(e.target.value)}
+                        placeholder="Ex: 123456 ou http://localhost:3000..."
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none tracking-widest text-center"
+                        required
+                        disabled={isForgotLoading}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Nova Senha</label>
+                      <input
+                        type="password"
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
+                        required
+                        disabled={isForgotLoading}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotModalOpen(false);
+                      setForgotError('');
+                      setForgotMessage('');
+                      setForgotEmail('');
+                      setForgotCode('');
+                      setForgotNewPassword('');
+                      setForgotStep('email');
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isForgotLoading || (forgotStep === 'email' ? !forgotEmail : (!forgotCode || !forgotNewPassword))}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isForgotLoading ? 'Carregando...' : (forgotStep === 'email' ? 'Enviar Código' : 'Redefinir Senha')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
