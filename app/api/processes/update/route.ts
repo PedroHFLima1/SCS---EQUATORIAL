@@ -6,19 +6,19 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, module, partner, status, protocol, sla, concessionaria, taxaPaga, user } = body;
+    const { id, module, partner, status, protocol, sla, concessionaria, user } = body;
     
     const process = await prisma.process.findUnique({ where: { id } });
     
-    let dataToUpdate: any = { };
-    if (module !== undefined) dataToUpdate.module = module;
-    if (partner !== undefined) dataToUpdate.partner = partner;
-    if (status !== undefined) dataToUpdate.status = status;
-    if (protocol !== undefined) dataToUpdate.protocol = protocol;
-    if (concessionaria !== undefined) dataToUpdate.concessionaria = concessionaria;
-    if (taxaPaga !== undefined) dataToUpdate.taxaPaga = taxaPaga;
+    let dataToUpdate: any = { 
+        module,
+        partner,
+        status,
+        protocol,
+        concessionaria
+    };
     
-    if (status && process && process.status !== status) {
+    if (process && process.status !== status) {
         dataToUpdate.statusUpdatedAt = new Date();
         const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
         if (terminalStatuses.includes(status) && process.statusUpdatedAt) {

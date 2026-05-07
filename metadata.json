@@ -1,5 +1,5 @@
 {
   "name": "SCS (Equatorial) V2",
-  "description": "Sistema de Controle de Projetos",
+  "description": "Sistema de Controle de Projetos com gestão avançada de transição de status para ANUENCIA e TRAVESSIA.",
   "requestFramePermissions": []
 }

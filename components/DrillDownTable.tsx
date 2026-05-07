@@ -53,33 +53,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     }
   };
 
-  const handleTaxaPagaChange = async (protocolId: string | undefined, newTaxaPaga: string, isManual: boolean) => {
-    if (isManual || !protocolId) {
-      showSuccess("Protocolos manuais ainda não editáveis nesta visualização.");
-      return;
-    }
-    try {
-      const res = await fetch('/api/processes/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: protocolId,
-          taxaPaga: newTaxaPaga,
-          user: userName || role || 'Admin'
-        })
-      });
-      if (res.ok) {
-        showSuccess(`Taxa paga atualizada para ${newTaxaPaga}`);
-        setTimeout(() => window.location.reload(), 1000);
-      } else {
-        alert("Erro ao alterar status da taxa");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao alterar status da taxa");
-    }
-  };
-
   const handleProtocolStatusChange = async (protocolId: string | undefined, newStatus: string, isManual: boolean) => {
     if (isManual || !protocolId) {
       showSuccess("Protocolos manuais ainda não editáveis nesta visualização.");
@@ -257,7 +230,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     
     // Get DB protocols
     const dbProtocols = processes
-      .filter(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto && p.protocol != null && p.protocol !== "")
+      .filter(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto && p.protocol)
       .map(p => ({
         id: p.id,
         protocolo: p.protocol || '-',
@@ -271,7 +244,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         rodovia: p.rodovia || '-',
         km: p.km || '-',
         taxa: p.taxa || '-',
-        taxaPaga: p.taxaPaga || null,
         isManual: false,
         process: p
       }));
@@ -322,15 +294,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         if (res.ok) {
           const data = await res.json();
           savedId = data.id;
-        } else {
-          const text = await res.text();
-          console.error("API error:", text);
-          alert("Erro no servidor ao salvar protocolo: " + text);
-          return; // Stop here, so it doesn't silently become manual-only
         }
-      } else {
-        alert("Processo base não encontrado para vincular o protocolo!");
-        return;
       }
 
       const newProtocol = {
@@ -758,7 +722,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <th className="px-6 py-3 font-medium">RODOVIA</th>
                     <th className="px-6 py-3 font-medium">KM</th>
                     <th className="px-6 py-3 font-medium">TAXA?</th>
-                    <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -771,9 +734,15 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       <td className="px-6 py-4">{item.concessionaria}</td>
                       <td className="px-6 py-4">{item.parceira}</td>
                       <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
-                          {item.status}
-                        </span>
+                        <select
+                          value={item.status}
+                          onChange={(e) => handleProtocolStatusChange(item.id, e.target.value, item.isManual)}
+                          className={`rounded-full border px-2.5 py-0.5 text-xs font-medium cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}
+                        >
+                          <option value="PROTOCOLADO" className="bg-white text-black">PROTOCOLADO</option>
+                          <option value="APROVADO" className="bg-white text-black">APROVADO</option>
+                          <option value="CANCELADO" className="bg-white text-black">CANCELADO</option>
+                        </select>
                       </td>
                       <td className="px-6 py-4">{item.dataProtocolo}</td>
                       <td className="px-6 py-4">{item.valor}</td>
@@ -781,58 +750,10 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       <td className="px-6 py-4">{item.tipo}</td>
                       <td className="px-6 py-4">{item.rodovia}</td>
                       <td className="px-6 py-4">{item.km}</td>
-                      <td className="px-6 py-4 flex flex-col gap-1 items-start">
+                      <td className="px-6 py-4">
                         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${item.taxa === 'SIM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
                           {item.taxa}
                         </span>
-                        {item.taxa === 'SIM' && (role === 'ADMIN' || role === 'GESTOR_TRAVESSIA') && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] uppercase text-gray-500">Paga:</span>
-                            <select
-                              value={item.taxaPaga || 'NÃO'}
-                              onChange={(e) => handleTaxaPagaChange(item.id, e.target.value, item.isManual)}
-                              className="rounded-md border p-0.5 text-xs focus:ring-1 focus:ring-blue-500 outline-none max-w-[60px]"
-                            >
-                              <option value="SIM">SIM</option>
-                              <option value="NÃO">NÃO</option>
-                            </select>
-                          </div>
-                        )}
-                        {item.taxa === 'SIM' && role === 'PARCEIRA' && item.taxaPaga === 'SIM' && (
-                          <span className="text-[10px] bg-green-100 text-green-700 px-1 py-0.5 rounded uppercase mt-1">
-                            Paga
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="relative group inline-block">
-                          <button className="text-gray-400 hover:text-blue-600 focus:outline-none p-1">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
-                          </button>
-                          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border dark:border-gray-700 z-50 hidden group-hover:block hover:block">
-                            <div className="py-1">
-                              <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/50">Mudar Status</div>
-                              <button
-                                onClick={() => handleProtocolStatusChange(item.id, 'PROTOCOLADO', item.isManual)}
-                                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${item.status === 'PROTOCOLADO' ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-200'}`}
-                              >
-                                PROTOCOLADO
-                              </button>
-                              <button
-                                onClick={() => handleProtocolStatusChange(item.id, 'APROVADO', item.isManual)}
-                                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${item.status === 'APROVADO' ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-200'}`}
-                              >
-                                APROVADO
-                              </button>
-                              <button
-                                onClick={() => handleProtocolStatusChange(item.id, 'CANCELADO', item.isManual)}
-                                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${item.status === 'CANCELADO' ? 'text-blue-600 font-medium' : 'text-gray-700 dark:text-gray-200'}`}
-                              >
-                                CANCELADO
-                              </button>
-                            </div>
-                          </div>
-                        </div>
                       </td>
                     </tr>
                   ))}

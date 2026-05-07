@@ -37,68 +37,63 @@ export async function importTriagemData(data: any[]) {
       const dataEnvioObra = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : null;
 
       try {
-        const existing = await prisma.process.findFirst({
+        await prisma.process.upsert({
           where: {
+            idSolicitacao_projeto: {
+              idSolicitacao: idSolicitacao,
+              projeto: projeto,
+            }
+          },
+          update: {
+            idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
+            municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : null,
+            regional: item.REGIONAL ? String(item.REGIONAL) : null,
+            superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : null,
+            fluxoPassagem: fluxoPassagem,
+            fluxoTravessia: fluxoTravessia,
+            fluxoTravessiaLt: fluxoTravessiaLt,
+            fluxoAmbiental: fluxoAmbiental,
+            parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
+            dataEnvioObra: dataEnvioObra,
+            // Não atualizamos as pendências se já existem, para não sobrescrever o trabalho da Parceira
+            // A menos que a regra de negócio exija. Vamos assumir que o upsert atualiza os dados base.
+          },
+          create: {
             idSolicitacao: idSolicitacao,
+            idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
             projeto: projeto,
+            municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : null,
+            regional: item.REGIONAL ? String(item.REGIONAL) : null,
+            superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : null,
+            fluxoPassagem: fluxoPassagem,
+            fluxoTravessia: fluxoTravessia,
+            fluxoTravessiaLt: fluxoTravessiaLt,
+            fluxoAmbiental: fluxoAmbiental,
+            parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
+            dataEnvioObra: dataEnvioObra,
+            
+            pendenciaAnuencia,
+            pendenciaTravessia,
+            pendenciaAmbiental,
+            statusTriagem: 'PENDENTE',
+            
+            // Legacy fields mapping to avoid breaking existing views completely
+            inscricao: idSolicitacao,
+            partner: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
+            concessionaria: null,
+            statusInscricao: 'NÃO INICIADO',
+            statusProjeto: 'NÃO INICIADO',
+            status: 'NOVO',
+            protocol: null,
+            valor: null,
+            dataVencimento: null,
+            tipo: null,
+            rodovia: null,
+            km: null,
+            sla: '12d',
+            module: 'travessia',
           }
         });
-
-        if (existing) {
-          await prisma.process.update({
-            where: { id: existing.id },
-            data: {
-              idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
-              municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : null,
-              regional: item.REGIONAL ? String(item.REGIONAL) : null,
-              superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : null,
-              fluxoPassagem: fluxoPassagem,
-              fluxoTravessia: fluxoTravessia,
-              fluxoTravessiaLt: fluxoTravessiaLt,
-              fluxoAmbiental: fluxoAmbiental,
-              parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
-              dataEnvioObra: dataEnvioObra,
-            }
-          });
-        } else {
-          await prisma.process.create({
-            data: {
-              idSolicitacao: idSolicitacao,
-              idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
-              projeto: projeto,
-              municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : null,
-              regional: item.REGIONAL ? String(item.REGIONAL) : null,
-              superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : null,
-              fluxoPassagem: fluxoPassagem,
-              fluxoTravessia: fluxoTravessia,
-              fluxoTravessiaLt: fluxoTravessiaLt,
-              fluxoAmbiental: fluxoAmbiental,
-              parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
-              dataEnvioObra: dataEnvioObra,
-              
-              pendenciaAnuencia,
-              pendenciaTravessia,
-              pendenciaAmbiental,
-              statusTriagem: 'PENDENTE',
-              
-              // Legacy fields mapping to avoid breaking existing views completely
-              inscricao: idSolicitacao,
-              partner: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
-              concessionaria: null,
-              statusInscricao: 'NÃO INICIADO',
-              statusProjeto: 'NÃO INICIADO',
-              status: 'NOVO',
-              protocol: null,
-              valor: null,
-              dataVencimento: null,
-              tipo: null,
-              rodovia: null,
-              km: null,
-              sla: '12d',
-              module: 'travessia',
-            }
-          });
-        }
         importedCount++;
       } catch (rowError) {
         console.error(`Erro ao importar linha (Solicitação: ${idSolicitacao}, Projeto: ${projeto}):`, rowError);

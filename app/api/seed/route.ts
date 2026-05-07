@@ -52,28 +52,26 @@ export async function GET() {
 
     let count = 0;
     for (const p of processes) {
-      const existing = await prisma.process.findFirst({
+      await prisma.process.upsert({
         where: { 
-          idSolicitacao: p.inscricao,
-          projeto: p.projeto
-        }
-      });
-      
-      if (!existing) {
-        await prisma.process.create({
-          data: {
+          idSolicitacao_projeto: {
             idSolicitacao: p.inscricao,
-            inscricao: p.inscricao,
-            projeto: p.projeto,
-            concessionaria: p.concessionaria,
-            partner: p.partner,
-            status: p.status,
-            protocol: p.protocol,
-            sla: p.sla,
-            module: p.module
-          },
-        });
-      }
+            projeto: p.projeto
+          }
+        },
+        update: {},
+        create: {
+          idSolicitacao: p.inscricao,
+          inscricao: p.inscricao,
+          projeto: p.projeto,
+          concessionaria: p.concessionaria,
+          partner: p.partner,
+          status: p.status,
+          protocol: p.protocol,
+          sla: p.sla,
+          module: p.module
+        },
+      });
       count++;
     }
 

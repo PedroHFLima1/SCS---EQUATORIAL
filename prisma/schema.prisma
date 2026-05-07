@@ -76,6 +76,7 @@ model Process {
   updatedAt           DateTime @updatedAt
   movements           Movement[]
 
+  @@unique([idSolicitacao, projeto])
   @@schema("public")
 }
 
