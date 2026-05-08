@@ -13,19 +13,28 @@ export async function GET(request: Request) {
     if (moduleParam === 'anuencia') {
       whereClause = {
         statusTriagem: 'FINALIZADO',
-        pendenciaAnuencia: true
+        OR: [
+          { pendenciaAnuencia: true },
+          { statusAnuencia: { not: null } }
+        ]
       };
     } else if (moduleParam === 'travessia') {
       whereClause = {
         statusTriagem: 'FINALIZADO',
-        pendenciaTravessia: true,
-        pendenciaAnuencia: false // Blocked by anuencia
+        pendenciaAnuencia: false,
+        OR: [
+          { pendenciaTravessia: true },
+          { statusTravessia: { not: null } }
+        ]
       };
     } else if (moduleParam === 'ambiental') {
       whereClause = {
         statusTriagem: 'FINALIZADO',
-        pendenciaAmbiental: true,
-        pendenciaAnuencia: false // Blocked by anuencia
+        pendenciaAnuencia: false,
+        OR: [
+          { pendenciaAmbiental: true },
+          { statusAmbiental: { not: null } }
+        ]
       };
     }
     
@@ -34,6 +43,9 @@ export async function GET(request: Request) {
       include: {
         movements: {
           orderBy: { date: 'desc' }
+        },
+        protocols: {
+          orderBy: { createdAt: 'desc' }
         }
       },
       orderBy: { createdAt: 'desc' }

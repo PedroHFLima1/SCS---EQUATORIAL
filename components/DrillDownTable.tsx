@@ -175,10 +175,15 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           m.description.includes('[ANUENCIA]') && m.description.includes('APROVADO')
         );
         
+        const projetoStatus = moduleName === 'anuencia' ? (p.statusAnuencia || p.status)
+                            : moduleName === 'ambiental' ? (p.statusAmbiental || p.status)
+                            : moduleName === 'travessia' ? (p.statusTravessia || p.status)
+                            : p.status;
+
         map.set(p.projeto, {
           projeto: p.projeto,
           parceira: p.parceiraProjeto || p.partner,
-          status: p.status,
+          status: projetoStatus,
           dataProtocolo: p.dataEnvioObra ? format(new Date(p.dataEnvioObra), 'dd/MM/yyyy') : '-',
           dataAprovacao: approvalMovement ? format(new Date(approvalMovement.date), 'dd/MM/yyyy') : '-',
           dataAnuencia: anuenciaApproval ? format(new Date(anuenciaApproval.date), 'dd/MM/yyyy') : '-',
@@ -193,31 +198,31 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       }
     });
     return Array.from(map.values());
-  }, [processes, selectedInscricao]);
+  }, [processes, selectedInscricao, moduleName]);
 
   // Protocolos (Layer 3 - Travessia only)
   const protocolos = useMemo(() => {
     if (!selectedInscricao || !selectedProjeto || moduleName !== 'travessia') return [];
     
     // Get DB protocols
-    const dbProtocols = processes
-      .filter(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto && p.protocol)
-      .map(p => ({
-        id: p.id,
-        protocolo: p.protocol || '-',
-        concessionaria: p.concessionaria || '-',
-        parceira: p.parceiraProjeto || p.partner,
-        status: p.status,
-        dataProtocolo: p.dataEnvioObra ? format(new Date(p.dataEnvioObra), 'dd/MM/yyyy') : '-',
-        valor: p.valor || '-',
-        dataVencimento: p.dataVencimento ? format(new Date(p.dataVencimento + 'T12:00:00'), 'dd/MM/yyyy') : '-',
-        tipo: p.tipo || '-',
-        rodovia: p.rodovia || '-',
-        km: p.km || '-',
-        taxa: p.taxa || '-',
-        isManual: false,
-        process: p
-      }));
+    const processFound = processes.find(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto);
+    const dbProtocols = (processFound?.protocols || []).map((p: any) => ({
+      id: p.id,
+      protocolo: p.numero || '-',
+      concessionaria: p.concessionaria || '-',
+      parceira: processFound.parceiraProjeto || processFound.partner,
+      status: p.status,
+      dataProtocolo: p.dataProtocolo ? format(new Date(p.dataProtocolo), 'dd/MM/yyyy') : '-',
+      valor: p.valor || '-',
+      dataVencimento: p.dataVencimento ? format(new Date(p.dataVencimento + 'T12:00:00'), 'dd/MM/yyyy') : '-',
+      tipo: p.tipo || '-',
+      rodovia: p.rodovia || '-',
+      km: p.km || '-',
+      taxa: p.taxa || '-',
+      isManual: false,
+      process: processFound,
+      protocolObj: p
+    }));
       
     // Get manual protocols for this specific projeto
     const manualForProjeto = manualProtocolos.filter(m => m.inscricao === selectedInscricao && m.projeto === selectedProjeto);
@@ -284,13 +289,17 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     }
   };
 
-  const handleOpenHistory = async (inscricao: string) => {
+  const [historyProjeto, setHistoryProjeto] = useState<string | null>(null);
+
+  const handleOpenHistory = async (inscricao: string, projeto?: string) => {
     setHistoryInscricao(inscricao);
+    setHistoryProjeto(projeto || null);
     setHistoryActiveTab('historico');
     setIsHistoryModalOpen(true);
     setHistoryLoading(true);
     try {
-      const res = await fetch(`/api/history?inscricao=${encodeURIComponent(inscricao)}`);
+      const url = projeto ? `/api/history?inscricao=${encodeURIComponent(inscricao)}&projeto=${encodeURIComponent(projeto)}` : `/api/history?inscricao=${encodeURIComponent(inscricao)}`;
+      const res = await fetch(url);
       const data = await res.json();
       setHistoryData(data);
     } catch (error) {
@@ -313,7 +322,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
             <Edit className="h-4 w-4" />
           </button>
         )}
-        <button onClick={() => handleOpenHistory(process.inscricao || process.idSolicitacao)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1" title="Ver Histórico Completo">
+        <button onClick={() => handleOpenHistory(process.inscricao || process.idSolicitacao, isProjeto ? process.projeto : undefined)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1" title="Ver Histórico Completo">
           <ClipboardList className="h-4 w-4" />
         </button>
         {isProjeto && (
@@ -693,6 +702,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <th className="px-6 py-3 font-medium">RODOVIA</th>
                     <th className="px-6 py-3 font-medium">KM</th>
                     <th className="px-6 py-3 font-medium">TAXA?</th>
+                    <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -719,6 +729,15 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${item.taxa === 'SIM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
                           {item.taxa}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
+                          {openTreatment && (
+                            <button onClick={() => openTreatment({ ...item.process, isLayer3: true, protocolId: item.id, status: item.status, protocol: item.protocolo })} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Protocolo">
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -796,9 +815,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
                       <option>NOVO</option>
-                      <option>TRIAGEM</option>
-                      <option>CORREÇÃO</option>
                       <option>PROTOCOLADO</option>
+                      <option>CANCELADO</option>
                       <option>APROVADO</option>
                     </select>
                   </div>
@@ -925,6 +943,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
               <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-500" />
                 Inscrição: {historyInscricao}
+                {historyProjeto && <span className="text-gray-500 font-normal"> / Projeto: {historyProjeto}</span>}
               </h3>
               <button onClick={() => setIsHistoryModalOpen(false)} className="rounded-full p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors">
                 <X className="h-5 w-5" />

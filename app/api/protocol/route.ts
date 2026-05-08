@@ -31,32 +31,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Processo base não encontrado' }, { status: 404 });
     }
 
-    const newProtocol = await prisma.process.create({
+    const newProtocol = await prisma.protocol.create({
       data: {
-        idSolicitacao: baseProcess.idSolicitacao,
-        inscricao: baseProcess.inscricao,
-        projeto: projeto,
-        protocol: protocolo,
+        processId: baseProcessId,
+        numero: protocolo,
         concessionaria: concessionaria,
-        parceiraProjeto: parceira,
         status: status,
-        dataEnvioObra: dataProtocolo ? new Date(dataProtocolo) : undefined,
+        dataProtocolo: dataProtocolo ? new Date(dataProtocolo) : undefined,
         valor: valor,
         dataVencimento: dataVencimento,
         tipo: tipo,
         rodovia: rodovia,
         km: km,
-        taxa: taxa,
-        module: moduleName,
-        // Inherit flags so it doesn't break filters
-        pendenciaAnuencia: baseProcess.pendenciaAnuencia,
-        pendenciaTravessia: baseProcess.pendenciaTravessia,
-        pendenciaAmbiental: baseProcess.pendenciaAmbiental,
-        statusTriagem: baseProcess.statusTriagem,
-        municipio: baseProcess.municipio,
-        regional: baseProcess.regional,
+        taxa: taxa
       }
     });
+
+    // Cascading Status: Protocolo -> Projeto -> Inscrição
+    // If Protocol is updated to PROTOCOLADO or APROVADO, it impacts the Project.
+    // We will do this in the update-status route or handle it if status comes initially set here.
+    // Generally when created, it's 'NOVO', so no immediate update needed, 
+    // unless they choose PROTOCOLADO right away. Let's do a basic check here:
+    if (status === 'PROTOCOLADO' || status === 'APROVADO') {
+      await fetch(`http://127.0.0.1:3000/api/processes/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: baseProcessId,
+          protocolId: newProtocol.id,
+          isLayer3: true,
+          status: status,
+          module: moduleName
+        })
+      });
+    }
 
     return NextResponse.json(newProtocol);
   } catch (error: any) {

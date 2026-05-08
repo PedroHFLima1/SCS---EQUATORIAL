@@ -59,6 +59,12 @@ export function ProcessTreatmentModal({
       setStep('status');
       setHasNewEmbargoQuestion(null);
       setRejectForwarding(false);
+      setProtocol(process.protocol || process.protocolo || '');
+      setValor(process.valor || '');
+      setDataVencimento(process.dataVencimento || '');
+      setTipo(process.tipo || '');
+      setRodovia(process.rodovia || '');
+      setKm(process.km || '');
       
       // Reset protocol fields
       setProtocol(process.protocol || '');
@@ -106,20 +112,21 @@ export function ProcessTreatmentModal({
           inscricao: process.inscricao || process.idSolicitacao,
           projeto: process.isLayer1 ? undefined : process.projeto,
           isLayer1: process.isLayer1,
+          isLayer3: process.isLayer3,
+          protocolId: process.protocolId,
           module,
           status: newStatus,
           justification,
           user: userEmail || userRole,
           flags: rejectForwarding ? undefined : flags,
           rejectForwarding,
-          ...(newStatus === 'PROTOCOLADO' && {
-            protocol,
-            valor,
-            dataVencimento,
-            tipo,
-            rodovia,
-            km
-          })
+          // Removed conditional to always send protocol details if they exist in state, as Protocol layer might edit them
+          protocol,
+          valor,
+          dataVencimento,
+          tipo,
+          rodovia,
+          km
         }),
       });
 
@@ -137,6 +144,10 @@ export function ProcessTreatmentModal({
   };
 
   const getStatusOptions = () => {
+    if (process.isLayer3) {
+      return ['APROVADO', 'CANCELADO', 'PROTOCOLADO'];
+    }
+    
     if (process.isLayer1) {
       return ['NÃO SE APLICA', 'NÃO INICIADO', 'EM ANDAMENTO', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
     }
@@ -145,7 +156,7 @@ export function ProcessTreatmentModal({
       case 'anuencia':
         return ['ATENDIDO', 'NEGADO', 'DUP'];
       case 'travessia':
-        return ['CANCELADO', 'NÃO INICIADO', 'TAXA', 'PROTOCOLADO', 'APROVADO', 'EM CORREÇÃO', 'EM ANDAMENTO CONCESSIONÁRIA'];
+        return ['NOVO', 'PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA', 'APROVADO'];
       case 'ambiental':
         return ['EM ESTUDO', 'NÃO INICIADO', 'TAXA', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
       default:

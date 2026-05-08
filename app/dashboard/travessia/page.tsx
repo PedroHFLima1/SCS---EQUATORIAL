@@ -110,10 +110,16 @@ export default function TravessiaPage() {
       result = result.filter(p => p.projeto && p.projeto.toLowerCase().includes(searchProjeto.toLowerCase()));
     }
     if (statusInscricaoFilter !== 'Todas as Fases') {
-      result = result.filter(p => (p.statusInscricao || p.status) === statusInscricaoFilter);
+      result = result.filter(p => {
+        const inscStatus = p.statusInscricao || p.status;
+        return inscStatus === statusInscricaoFilter;
+      });
     }
     if (statusProjetoFilter !== 'Todas as Fases') {
-      result = result.filter(p => p.status === statusProjetoFilter);
+      result = result.filter(p => {
+        const projStatus = p.statusTravessia || p.status;
+        return projStatus === statusProjetoFilter;
+      });
     }
     if (concessionariaFilter !== 'Todas') {
       result = result.filter(p => p.concessionaria === concessionariaFilter);

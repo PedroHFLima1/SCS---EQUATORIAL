@@ -119,7 +119,7 @@ export async function aprovarTriagem(id: string, changes: any, user: string) {
         pendenciaTravessia: changes.pendenciaTravessia,
         pendenciaAmbiental: changes.pendenciaAmbiental,
         statusInscricao: 'NÃO INICIADO',
-        status: 'NÃO INICIADO',
+        status: 'NOVO',
         dataAprovacao: new Date(),
         aprovadoPor: user,
       }

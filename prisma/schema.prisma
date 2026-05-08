@@ -75,8 +75,29 @@ model Process {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   movements           Movement[]
+  protocols           Protocol[]
 
   @@unique([idSolicitacao, projeto])
+  @@schema("public")
+}
+
+model Protocol {
+  id              String   @id @default(uuid())
+  processId       String
+  process         Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
+  numero          String
+  status          String   @default("NOVO")
+  concessionaria  String?
+  dataProtocolo   DateTime?
+  valor           String?
+  dataVencimento  String?
+  tipo            String?
+  rodovia         String?
+  km              String?
+  taxa            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
   @@schema("public")
 }
 

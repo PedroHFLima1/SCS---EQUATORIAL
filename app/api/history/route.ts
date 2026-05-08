@@ -6,20 +6,27 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const inscricao = searchParams.get('inscricao');
+  const projeto = searchParams.get('projeto');
 
   if (!inscricao) {
     return NextResponse.json({ error: 'Inscrição is required' }, { status: 400 });
   }
 
   try {
-    // Find all processes for this inscricao
+    let whereQuery: any = {
+      OR: [
+        { inscricao: inscricao },
+        { idSolicitacao: inscricao }
+      ]
+    };
+
+    if (projeto) {
+      whereQuery.projeto = projeto;
+    }
+
+    // Find all processes for this inscricao/projeto
     const processes = await prisma.process.findMany({
-      where: {
-        OR: [
-          { inscricao: inscricao },
-          { idSolicitacao: inscricao }
-        ]
-      },
+      where: whereQuery,
       include: {
         movements: {
           orderBy: { date: 'desc' }
