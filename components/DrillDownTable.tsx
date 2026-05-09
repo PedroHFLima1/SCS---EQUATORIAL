@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench, Download, MessageSquarePlus, Check, Paperclip, ExternalLink, UploadCloud } from 'lucide-react';
@@ -29,6 +29,13 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   const { company, name: userName } = useAuth();
   const [selectedInscricao, setSelectedInscricao] = useState<string | null>(null);
   const [selectedProjeto, setSelectedProjeto] = useState<string | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedInscricao, selectedProjeto]);
   
   // Local state for manual protocols (Travessia Layer 3)
   const [manualProtocolos, setManualProtocolos] = useState<any[]>([]);
@@ -117,7 +124,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         map.set(key, {
           inscricao: key,
           parceira: p.parceiraProjeto || p.partner,
-          status: p.statusInscricao || 'NÃO INICIADO',
+          status: moduleName === 'anuencia' ? p.statusInscricaoAnuencia : moduleName === 'travessia' ? p.statusInscricaoTravessia : moduleName === 'ambiental' ? p.statusInscricaoAmbiental : p.statusInscricao || 'NÃO INICIADO',
           municipio: p.municipio || '-',
           regional: p.regional || '-',
           superintendencia: p.superintendencia || '-',
@@ -200,9 +207,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     return Array.from(map.values());
   }, [processes, selectedInscricao, moduleName]);
 
-  // Protocolos (Layer 3 - Travessia only)
+  // Protocolos (Layer 3 - Travessia and Ambiental)
   const protocolos = useMemo(() => {
-    if (!selectedInscricao || !selectedProjeto || moduleName !== 'travessia') return [];
+    if (!selectedInscricao || !selectedProjeto || (moduleName !== 'travessia' && moduleName !== 'ambiental')) return [];
     
     // Get DB protocols
     const processFound = processes.find(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto);
@@ -219,6 +226,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       rodovia: p.rodovia || '-',
       km: p.km || '-',
       taxa: p.taxa || '-',
+      numeroProcesso: processFound.numeroProcesso || p.numeroProcesso || '-',
+      dataAprovacao: processFound.dataAprovacao || p.dataAprovacao ? format(new Date(processFound.dataAprovacao || p.dataAprovacao), 'dd/MM/yyyy') : '-',
       isManual: false,
       process: processFound,
       protocolObj: p
@@ -229,6 +238,22 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     
     return [...dbProtocols, ...manualForProjeto];
   }, [processes, selectedInscricao, selectedProjeto, moduleName, manualProtocolos]);
+
+  const paginatedInscricoes = useMemo(() => {
+    return inscricoes.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [inscricoes, currentPage]);
+
+  const paginatedProjetos = useMemo(() => {
+    return projetos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [projetos, currentPage]);
+
+  const paginatedProtocolos = useMemo(() => {
+    return protocolos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [protocolos, currentPage]);
+
+  const totalPagesInscricoes = Math.ceil(inscricoes.length / ITEMS_PER_PAGE);
+  const totalPagesProjetos = Math.ceil(projetos.length / ITEMS_PER_PAGE);
+  const totalPagesProtocolos = Math.ceil(protocolos.length / ITEMS_PER_PAGE);
 
   const handleOpenProtocolModal = () => {
     setProtocolForm({
@@ -469,7 +494,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {inscricoes.map((item, idx) => (
+                  {paginatedInscricoes.map((item, idx) => (
                     <tr 
                       key={idx} 
                       onClick={() => setSelectedInscricao(item.inscricao)}
@@ -479,36 +504,42 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       {moduleName === 'admin' ? (
                         <>
                           <td className="px-4 py-4 align-top">
-                            {!item.hasAnuencia ? null : (
+                            {item.hasAnuencia ? (
                               <div className="flex flex-col gap-1 items-start">
-                                {Array.from(item.statusAnuencia).slice(0, 1).map((st: string) => (
+                                {item.statusAnuencia.size > 0 ? Array.from(item.statusAnuencia).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
                                     {st}
                                   </span>
-                                ))}
+                                )) : <span className="text-gray-500 font-medium">-</span>}
                               </div>
+                            ) : (
+                              <span className="text-gray-500 font-medium">-</span>
                             )}
                           </td>
                           <td className="px-4 py-4 align-top">
-                            {!item.hasAmbiental ? null : (
+                            {item.hasAmbiental ? (
                               <div className="flex flex-col gap-1 items-start">
-                                {Array.from(item.statusAmbiental).slice(0, 1).map((st: string) => (
+                                {item.statusAmbiental.size > 0 ? Array.from(item.statusAmbiental).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
                                     {st}
                                   </span>
-                                ))}
+                                )) : <span className="text-gray-500 font-medium">-</span>}
                               </div>
+                            ) : (
+                              <span className="text-gray-500 font-medium">-</span>
                             )}
                           </td>
                           <td className="px-4 py-4 align-top">
-                            {!item.hasTravessia ? null : (
+                            {item.hasTravessia ? (
                               <div className="flex flex-col gap-1 items-start">
-                                {Array.from(item.statusTravessia).slice(0, 1).map((st: string) => (
+                                {item.statusTravessia.size > 0 ? Array.from(item.statusTravessia).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
                                     {st}
                                   </span>
-                                ))}
+                                )) : <span className="text-gray-500 font-medium">-</span>}
                               </div>
+                            ) : (
+                              <span className="text-gray-500 font-medium">-</span>
                             )}
                           </td>
                           <td className="px-6 py-4 align-top">{item.parceira}</td>
@@ -574,6 +605,13 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                   )}
                 </tbody>
               </table>
+              {totalPagesInscricoes > 1 && (
+                <div className="flex justify-center items-center py-4 space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Página {currentPage} de {totalPagesInscricoes}</span>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPagesInscricoes))} disabled={currentPage === totalPagesInscricoes}>Próxima</Button>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -617,16 +655,16 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {projetos.map((item, idx) => (
+                  {paginatedProjetos.map((item, idx) => (
                     <tr 
                       key={idx} 
                       onClick={() => {
-                        // Only drill down to Layer 3 if it's Travessia
-                        if (moduleName === 'travessia') {
+                        // Only drill down to Layer 3 if it's Travessia or Ambiental
+                        if (moduleName === 'travessia' || moduleName === 'ambiental') {
                           setSelectedProjeto(item.projeto);
                         }
                       }}
-                      className={`${moduleName === 'travessia' ? 'hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer' : ''} transition-colors`}
+                      className={`${(moduleName === 'travessia' || moduleName === 'ambiental') ? 'hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer' : ''} transition-colors`}
                     >
                       <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">{item.projeto}</td>
                       <td className="px-6 py-4">{item.parceira}</td>
@@ -676,11 +714,18 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                   ))}
                 </tbody>
               </table>
+              {totalPagesProjetos > 1 && (
+                <div className="flex justify-center items-center py-4 space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Página {currentPage} de {totalPagesProjetos}</span>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPagesProjetos))} disabled={currentPage === totalPagesProjetos}>Próxima</Button>
+                </div>
+              )}
             </motion.div>
           )}
 
-          {/* LAYER 3: PROTOCOLOS (TRAVESSIA ONLY) */}
-          {selectedProjeto && moduleName === 'travessia' && (
+          {/* LAYER 3: PROTOCOLOS (TRAVESSIA AND AMBIENTAL) */}
+          {selectedProjeto && (moduleName === 'travessia' || moduleName === 'ambiental') && (
             <motion.div
               key="protocolos"
               initial={{ opacity: 0, x: -20 }}
@@ -691,65 +736,117 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
               <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
                 <thead className="bg-gray-50 dark:bg-gray-950/50 text-xs uppercase text-gray-500 dark:text-gray-400">
                   <tr>
-                    <th className="px-6 py-3 font-medium">N° PROTOCOLO</th>
-                    <th className="px-6 py-3 font-medium">CONCESSIONÁRIA</th>
-                    <th className="px-6 py-3 font-medium">PARCEIRA</th>
-                    <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
-                    <th className="px-6 py-3 font-medium">DATA PROTOCOLO</th>
-                    <th className="px-6 py-3 font-medium">VALOR</th>
-                    <th className="px-6 py-3 font-medium">DATA VENCIMENTO BOLETO</th>
-                    <th className="px-6 py-3 font-medium">TIPO</th>
-                    <th className="px-6 py-3 font-medium">RODOVIA</th>
-                    <th className="px-6 py-3 font-medium">KM</th>
-                    <th className="px-6 py-3 font-medium">TAXA?</th>
-                    <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
+                    {moduleName === 'travessia' ? (
+                      <>
+                        <th className="px-6 py-3 font-medium">N° PROTOCOLO</th>
+                        <th className="px-6 py-3 font-medium">CONCESSIONÁRIA</th>
+                        <th className="px-6 py-3 font-medium">PARCEIRA</th>
+                        <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
+                        <th className="px-6 py-3 font-medium">DATA PROTOCOLO</th>
+                        <th className="px-6 py-3 font-medium">VALOR</th>
+                        <th className="px-6 py-3 font-medium">DATA VENCIMENTO BOLETO</th>
+                        <th className="px-6 py-3 font-medium">TIPO</th>
+                        <th className="px-6 py-3 font-medium">RODOVIA</th>
+                        <th className="px-6 py-3 font-medium">KM</th>
+                        <th className="px-6 py-3 font-medium">TAXA?</th>
+                        <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
+                        <th className="px-6 py-3 font-medium">N° PROCESSO</th>
+                        <th className="px-6 py-3 font-medium">VALOR TAXA</th>
+                        <th className="px-6 py-3 font-medium">N° PROTOCOLO</th>
+                        <th className="px-6 py-3 font-medium">DATA PROTOCOLO</th>
+                        <th className="px-6 py-3 font-medium">DATA APROVAÇÃO</th>
+                        <th className="px-6 py-3 font-medium">OBS (AÇÕES)</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {protocolos.map((item, idx) => (
+                  {paginatedProtocolos.map((item, idx) => (
                     <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 ${item.isManual ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                      <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">
-                        {item.protocolo}
-                        {item.isManual && <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Manual</span>}
-                      </td>
-                      <td className="px-6 py-4">{item.concessionaria}</td>
-                      <td className="px-6 py-4">{item.parceira}</td>
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">{item.dataProtocolo}</td>
-                      <td className="px-6 py-4">{item.valor}</td>
-                      <td className="px-6 py-4">{item.dataVencimento}</td>
-                      <td className="px-6 py-4">{item.tipo}</td>
-                      <td className="px-6 py-4">{item.rodovia}</td>
-                      <td className="px-6 py-4">{item.km}</td>
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${item.taxa === 'SIM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
-                          {item.taxa}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
-                          {openTreatment && (
-                            <button onClick={() => openTreatment({ ...item.process, isLayer3: true, protocolId: item.id, status: item.status, protocol: item.protocolo })} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Protocolo">
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                      {moduleName === 'travessia' ? (
+                        <>
+                          <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">
+                            {item.protocolo}
+                            {item.isManual && <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Manual</span>}
+                          </td>
+                          <td className="px-6 py-4">{item.concessionaria}</td>
+                          <td className="px-6 py-4">{item.parceira}</td>
+                          <td className="px-6 py-4">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">{item.dataProtocolo}</td>
+                          <td className="px-6 py-4">{item.valor}</td>
+                          <td className="px-6 py-4">{item.dataVencimento}</td>
+                          <td className="px-6 py-4">{item.tipo}</td>
+                          <td className="px-6 py-4">{item.rodovia}</td>
+                          <td className="px-6 py-4">{item.km}</td>
+                          <td className="px-6 py-4">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${item.taxa === 'SIM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
+                              {item.taxa}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
+                              {openTreatment && (
+                                <button onClick={() => openTreatment({ ...item.process, isLayer3: true, protocolId: item.id, status: item.status, protocol: item.protocolo })} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Protocolo">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-4">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">{item.numeroProcesso}</td>
+                          <td className="px-6 py-4">{item.valor}</td>
+                          <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">
+                            {item.protocolo}
+                          </td>
+                          <td className="px-6 py-4">{item.dataProtocolo}</td>
+                          <td className="px-6 py-4">{item.dataAprovacao}</td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
+                              {openTreatment && (
+                                <button onClick={() => openTreatment({ ...item.process, isLayer3: true, protocolId: item.id, status: item.status, protocol: item.protocolo })} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Protocolo">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                               <button onClick={() => openHistory(item.process.idSolicitacao || item.process.inscricao, item.process.projeto)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1" title="Ver Histórico">
+                                  <ClipboardList className="h-4 w-4" />
+                                </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                   {protocolos.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={12} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                         Nenhum protocolo encontrado para este projeto.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              {totalPagesProtocolos > 1 && (
+                <div className="flex justify-center items-center py-4 space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Página {currentPage} de {totalPagesProtocolos}</span>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPagesProtocolos))} disabled={currentPage === totalPagesProtocolos}>Próxima</Button>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

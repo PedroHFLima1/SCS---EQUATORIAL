@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Projeto, Protocolo } from '@/types';
 import { fetchProtocolosByProjeto } from '@/lib/api';
+import { STATUS_COLORS } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { motion } from 'motion/react';
+import { Button } from '@/components/ui/button';
 
 interface ProtocoloListProps {
   projeto: Projeto;
@@ -16,6 +18,8 @@ interface ProtocoloListProps {
 export function ProtocoloList({ projeto }: ProtocoloListProps) {
   const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
     const loadData = async () => {
@@ -23,6 +27,7 @@ export function ProtocoloList({ projeto }: ProtocoloListProps) {
       try {
         const data = await fetchProtocolosByProjeto(projeto.id);
         setProtocolos(data);
+        setCurrentPage(1);
       } catch (error) {
         console.error('Failed to fetch protocolos', error);
       } finally {
@@ -33,13 +38,15 @@ export function ProtocoloList({ projeto }: ProtocoloListProps) {
   }, [projeto.id]);
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Aberto': return 'bg-blue-100 text-blue-800 hover:bg-blue-100';
-      case 'Em Tratamento': return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100';
-      case 'Fechado': return 'bg-green-100 text-green-800 hover:bg-green-100';
-      default: return 'bg-gray-100 text-gray-800 hover:bg-gray-100';
-    }
+    return STATUS_COLORS[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
   };
+
+  const paginatedProtocolos = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return protocolos.slice(start, start + ITEMS_PER_PAGE);
+  }, [protocolos, currentPage]);
+
+  const totalPages = Math.ceil(protocolos.length / ITEMS_PER_PAGE);
 
   if (loading) {
     return (
@@ -73,14 +80,14 @@ export function ProtocoloList({ projeto }: ProtocoloListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {protocolos.length === 0 ? (
+                {paginatedProtocolos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-muted-foreground">
                       Nenhum protocolo encontrado para este projeto.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  protocolos.map((protocolo) => (
+                  paginatedProtocolos.map((protocolo) => (
                     <TableRow key={protocolo.id} className="hover:bg-muted/50 transition-colors">
                       <TableCell className="font-medium">{protocolo.numero}</TableCell>
                       <TableCell>{protocolo.descricao}</TableCell>
@@ -96,6 +103,13 @@ export function ProtocoloList({ projeto }: ProtocoloListProps) {
               </TableBody>
             </Table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-4 space-x-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+              <span className="text-sm text-gray-500">Página {currentPage} de {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>Próxima</Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>

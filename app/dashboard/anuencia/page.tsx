@@ -111,7 +111,7 @@ export default function AnuenciaPage() {
     }
     if (statusInscricaoFilter !== 'Todas as Fases') {
       result = result.filter(p => {
-        const inscStatus = p.statusInscricao || p.status;
+        const inscStatus = p.statusInscricaoAnuencia || p.status;
         return inscStatus === statusInscricaoFilter;
       });
     }
@@ -220,11 +220,11 @@ export default function AnuenciaPage() {
       {/* Summary Cards */}
       <div className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: 'NÃO SE APLICA', count: processes.filter(p => (p.statusInscricao || p.status) === 'NÃO SE APLICA').length, color: 'border-gray-500' },
-          { label: 'NÃO INICIADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'NÃO INICIADO').length, color: 'border-yellow-500' },
-          { label: 'EM ANDAMENTO', count: processes.filter(p => EM_ANDAMENTO_STATUSES.includes(p.statusInscricao || p.status)).length, color: 'border-blue-500' },
-          { label: 'APROVADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'APROVADO').length, color: 'border-green-500' },
-          { label: 'CANCELADOS', count: processes.filter(p => (p.statusInscricao || p.status) === 'CANCELADO' || (p.statusInscricao || p.status) === 'REPROVADO').length, color: 'border-red-500' },
+          { label: 'NÃO SE APLICA', count: processes.filter(p => (p.statusInscricaoAnuencia || p.status) === 'NÃO SE APLICA').length, color: 'border-gray-500' },
+          { label: 'NÃO INICIADOS', count: processes.filter(p => (p.statusInscricaoAnuencia || p.status) === 'NÃO INICIADO').length, color: 'border-yellow-500' },
+          { label: 'EM ANDAMENTO', count: processes.filter(p => EM_ANDAMENTO_STATUSES.includes(p.statusInscricaoAnuencia || p.status)).length, color: 'border-blue-500' },
+          { label: 'APROVADOS', count: processes.filter(p => (p.statusInscricaoAnuencia || p.status) === 'APROVADO').length, color: 'border-green-500' },
+          { label: 'CANCELADOS', count: processes.filter(p => (p.statusInscricaoAnuencia || p.status) === 'CANCELADO' || (p.statusInscricaoAnuencia || p.status) === 'REPROVADO').length, color: 'border-red-500' },
         ].map((card) => (
           <div key={card.label} className={`rounded-lg bg-white dark:bg-gray-900 p-4 shadow-sm border-b-4 ${card.color}`}>
             <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">{card.label}</div>

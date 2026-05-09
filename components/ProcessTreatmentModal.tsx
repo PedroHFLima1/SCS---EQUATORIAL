@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, ArrowRight, AlertCircle, Edit, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CONCESSIONARIAS } from '@/lib/constants';
+import { CONCESSIONARIAS, STATUS_COLORS } from '@/lib/constants';
 
 interface ProcessTreatmentModalProps {
   isOpen: boolean;
@@ -31,6 +31,9 @@ export function ProcessTreatmentModal({
   
   // Protocol fields (for Travessia)
   const [protocol, setProtocol] = useState('');
+  const [numeroProcesso, setNumeroProcesso] = useState('');
+  const [dataAprovacao, setDataAprovacao] = useState('');
+  const [dataProtocolo, setDataProtocolo] = useState('');
   const [valor, setValor] = useState('');
   const [dataVencimento, setDataVencimento] = useState('');
   const [tipo, setTipo] = useState('');
@@ -60,14 +63,9 @@ export function ProcessTreatmentModal({
       setHasNewEmbargoQuestion(null);
       setRejectForwarding(false);
       setProtocol(process.protocol || process.protocolo || '');
-      setValor(process.valor || '');
-      setDataVencimento(process.dataVencimento || '');
-      setTipo(process.tipo || '');
-      setRodovia(process.rodovia || '');
-      setKm(process.km || '');
-      
-      // Reset protocol fields
-      setProtocol(process.protocol || '');
+      setNumeroProcesso(process.numeroProcesso || '');
+      setDataAprovacao(process.dataAprovacao || '');
+      setDataProtocolo(process.dataProtocolo || '');
       setValor(process.valor || '');
       setDataVencimento(process.dataVencimento || '');
       setTipo(process.tipo || '');
@@ -103,8 +101,23 @@ export function ProcessTreatmentModal({
   };
 
   const handleSave = async () => {
-    setIsSubmitting(true);
     try {
+      if (module === 'ambiental') {
+          if (newStatus === 'TAXA' && (!numeroProcesso || !valor)) {
+              alert('N° PROCESSO e VALOR DA TAXA são obrigatórios para transição para TAXA.');
+              return;
+          }
+          if (newStatus === 'PROTOCOLADO' && (!protocol || !dataProtocolo)) {
+              alert('N° PROTOCOLO e DATA PROTOCOLO são obrigatórios para transição para PROTOCOLADO.');
+              return;
+          }
+          if (newStatus === 'APROVADO' && !dataAprovacao) {
+              alert('DATA APROVAÇÃO é obrigatória para transição para APROVADO.');
+              return;
+          }
+      }
+
+      setIsSubmitting(true);
       const res = await fetch('/api/processes/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,6 +135,9 @@ export function ProcessTreatmentModal({
           rejectForwarding,
           // Removed conditional to always send protocol details if they exist in state, as Protocol layer might edit them
           protocol,
+          numeroProcesso,
+          dataAprovacao,
+          dataProtocolo,
           valor,
           dataVencimento,
           tipo,
@@ -197,7 +213,7 @@ export function ProcessTreatmentModal({
             )}
             <div className="flex justify-between">
               <span className="text-slate-500 dark:text-slate-400 font-medium">Status Atual:</span>
-              <span className="text-blue-600 dark:text-blue-400 font-bold">{process.status}</span>
+              <span className={`font-bold rounded-full px-2 py-0.5 text-xs ${STATUS_COLORS[process.status] || 'bg-gray-100 text-gray-700'}`}>{process.status}</span>
             </div>
           </div>
 
@@ -282,6 +298,72 @@ export function ProcessTreatmentModal({
                 </div>
               )}
 
+              {module === 'ambiental' && ['TAXA', 'PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
+                <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="col-span-2">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-green-500" />
+                      Dados Ambiental
+                    </h4>
+                  </div>
+                  {['TAXA', 'PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'TAXA' && '*'}</label>
+                          <input
+                            type="text"
+                            value={numeroProcesso}
+                            onChange={(e) => setNumeroProcesso(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor Taxa {newStatus === 'TAXA' && '*'}</label>
+                          <input
+                            type="text"
+                            value={valor}
+                            onChange={(e) => setValor(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </>
+                  )}
+                  {['PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo {newStatus === 'PROTOCOLADO' && '*'}</label>
+                          <input
+                            type="text"
+                            value={protocol}
+                            onChange={(e) => setProtocol(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data Protocolo {newStatus === 'PROTOCOLADO' && '*'}</label>
+                          <input
+                            type="date"
+                            value={dataProtocolo}
+                            onChange={(e) => setDataProtocolo(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </>
+                  )}
+                  {newStatus === 'APROVADO' && (
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data Aprovação *</label>
+                        <input
+                          type="date"
+                          value={dataAprovacao}
+                          onChange={(e) => setDataAprovacao(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300">Justificativa / Razão <span className="text-red-500">*</span></label>
                 <textarea
@@ -331,14 +413,14 @@ export function ProcessTreatmentModal({
                       <Button 
                         variant={!rejectForwarding ? 'default' : 'outline'}
                         onClick={() => setRejectForwarding(false)}
-                        className="flex-1 rounded-lg"
+                        className={`flex-1 rounded-lg ${!rejectForwarding ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-900/20'}`}
                       >
                         Sim, Enviar
                       </Button>
                       <Button 
                         variant={rejectForwarding ? 'destructive' : 'outline'}
                         onClick={() => setRejectForwarding(true)}
-                        className="flex-1 rounded-lg"
+                        className={`flex-1 rounded-lg ${rejectForwarding ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-red-700 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20'}`}
                       >
                         Não, Rejeitar
                       </Button>
@@ -360,14 +442,14 @@ export function ProcessTreatmentModal({
                       <Button 
                         variant={hasNewEmbargoQuestion === true ? 'default' : 'outline'}
                         onClick={() => setHasNewEmbargoQuestion(true)}
-                        className="flex-1 rounded-lg"
+                        className={`flex-1 rounded-lg ${hasNewEmbargoQuestion === true ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-900/20'}`}
                       >
                         Sim
                       </Button>
                       <Button 
                         variant={hasNewEmbargoQuestion === false ? 'destructive' : 'outline'}
                         onClick={() => setHasNewEmbargoQuestion(false)}
-                        className="flex-1 rounded-lg"
+                        className={`flex-1 rounded-lg ${hasNewEmbargoQuestion === false ? 'bg-red-600 hover:bg-red-700 text-white' : 'text-red-700 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20'}`}
                       >
                         Não, Finalizar
                       </Button>

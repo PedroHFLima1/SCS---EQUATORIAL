@@ -150,6 +150,9 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     if (module === 'travessia') dataToUpdate.statusTravessia = newStatus;
     
     if (extraData.protocol !== undefined) dataToUpdate.protocol = extraData.protocol;
+    if (extraData.numeroProcesso !== undefined) dataToUpdate.numeroProcesso = extraData.numeroProcesso;
+    if (extraData.dataAprovacao !== undefined) dataToUpdate.dataAprovacao = extraData.dataAprovacao ? new Date(extraData.dataAprovacao) : null;
+    if (extraData.dataProtocolo !== undefined) dataToUpdate.dataProtocolo = extraData.dataProtocolo ? new Date(extraData.dataProtocolo) : null;
     if (extraData.valor !== undefined) dataToUpdate.valor = extraData.valor;
     if (extraData.dataVencimento !== undefined) dataToUpdate.dataVencimento = extraData.dataVencimento;
     if (extraData.tipo !== undefined) dataToUpdate.tipo = extraData.tipo;
@@ -209,49 +212,47 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
       return s;
     });
     
-    let newInscricaoStatus = process.statusInscricao;
+    let currentInscricaoStatus = module === 'anuencia' ? process.statusInscricaoAnuencia : module === 'travessia' ? process.statusInscricaoTravessia : module === 'ambiental' ? process.statusInscricaoAmbiental : process.statusInscricao;
+    let newInscricaoStatus = currentInscricaoStatus;
     
     if (module === 'anuencia') {
-        if (newStatus === 'NEGADO' || newStatus === 'DUP') {
+        const statuses = updatedSiblings.map(s => s.statusAnuencia || s.status);
+        if (statuses.some(s => s === 'NEGADO' || s === 'DUP')) {
             newInscricaoStatus = 'EM ANDAMENTO';
-        }
-        
-        // Se para a Inscrição inteira, não há mais nenhuma pendência de anuência
-        const isAnuenciaDone = updatedSiblings.every(s => !s.pendenciaAnuencia);
-        
-        if (isAnuenciaDone) {
-            // Se ainda tem próximos passos na fila
-            const hasMoreSteps = updatedSiblings.some(s => s.pendenciaTravessia || s.pendenciaAmbiental);
-            if (hasMoreSteps) {
-                 newInscricaoStatus = 'NÃO INICIADO';
-            } else {
-                 // Terminou tudo
-                 newInscricaoStatus = 'APROVADO';
-            }
+        } else if (statuses.every(s => s === 'ATENDIDO')) {
+            newInscricaoStatus = 'APROVADO';
+        } else if (statuses.some(s => s !== 'NÃO INICIADO')) {
+            newInscricaoStatus = 'EM ANDAMENTO';
         }
     } else if (module === 'travessia') {
+        const statuses = updatedSiblings.map(s => s.statusTravessia || s.status);
         const triggersEmAndamento = ['PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA'];
-        if (triggersEmAndamento.includes(newStatus)) {
+        if (statuses.some(s => triggersEmAndamento.includes(s!))) {
             newInscricaoStatus = 'EM ANDAMENTO';
         }
-        
-        const isTravessiaDone = updatedSiblings.every(s => !s.pendenciaTravessia);
-        if (isTravessiaDone) {
-             const hasMoreSteps = updatedSiblings.some(s => s.pendenciaAmbiental);
-             if (hasMoreSteps) {
-                 newInscricaoStatus = 'NÃO INICIADO';
-             } else {
-                 newInscricaoStatus = 'APROVADO';
-             }
+        if (statuses.every(s => s === 'APROVADO')) {
+            newInscricaoStatus = 'APROVADO';
+        } else if (newInscricaoStatus !== 'EM ANDAMENTO' && statuses.some(s => s !== 'NOVO' && s !== 'NÃO INICIADO')) {
+            newInscricaoStatus = 'EM ANDAMENTO';
         }
     } else if (module === 'ambiental') {
-        const isAmbientalDone = updatedSiblings.every(s => !s.pendenciaAmbiental);
-        if (isAmbientalDone) {
+        const statuses = updatedSiblings.map(s => s.statusAmbiental || s.status);
+        const triggersEmAndamento = ['EM ESTUDO', 'TAXA', 'PROTOCOLADO'];
+        if (statuses.some(s => triggersEmAndamento.includes(s!))) {
+            newInscricaoStatus = 'EM ANDAMENTO';
+        }
+        if (statuses.every(s => s === 'APROVADO')) {
              newInscricaoStatus = 'APROVADO';
+        } else if (newInscricaoStatus !== 'EM ANDAMENTO' && statuses.some(s => s !== 'NOVO' && s !== 'NÃO INICIADO')) {
+             newInscricaoStatus = 'EM ANDAMENTO';
         }
     }
 
-    if (newInscricaoStatus !== process.statusInscricao) {
+    if (newInscricaoStatus !== currentInscricaoStatus) {
+        if (module === 'anuencia') dataToUpdate.statusInscricaoAnuencia = newInscricaoStatus;
+        if (module === 'travessia') dataToUpdate.statusInscricaoTravessia = newInscricaoStatus;
+        if (module === 'ambiental') dataToUpdate.statusInscricaoAmbiental = newInscricaoStatus;
+        // Keep legacy up to date just in case
         dataToUpdate.statusInscricao = newInscricaoStatus;
     }
 
@@ -271,11 +272,16 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
       }
     });
 
-    if (newInscricaoStatus !== process.statusInscricao) {
+    if (newInscricaoStatus !== currentInscricaoStatus) {
         // Propagate Inscrição status to all siblings
+        let updateData: any = { statusInscricao: newInscricaoStatus };
+        if (module === 'anuencia') updateData.statusInscricaoAnuencia = newInscricaoStatus;
+        if (module === 'travessia') updateData.statusInscricaoTravessia = newInscricaoStatus;
+        if (module === 'ambiental') updateData.statusInscricaoAmbiental = newInscricaoStatus;
+        
         await prisma.process.updateMany({
            where: { idSolicitacao: process.idSolicitacao, NOT: { id: process.id } },
-           data: { statusInscricao: newInscricaoStatus }
+           data: updateData
         });
         
         await prisma.movement.create({

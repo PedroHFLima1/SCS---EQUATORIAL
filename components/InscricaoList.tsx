@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Inscricao } from '@/types';
 import { fetchInscricoes } from '@/lib/api';
+import { STATUS_COLORS } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { motion } from 'motion/react';
+import { Button } from '@/components/ui/button';
 
 interface InscricaoListProps {
   onSelect: (inscricao: Inscricao) => void;
@@ -16,6 +18,8 @@ interface InscricaoListProps {
 export function InscricaoList({ onSelect }: InscricaoListProps) {
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
     const loadData = async () => {
@@ -33,13 +37,7 @@ export function InscricaoList({ onSelect }: InscricaoListProps) {
   }, []);
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Ativa': return 'bg-green-100 text-green-800 hover:bg-green-100';
-      case 'Em Análise': return 'bg-blue-100 text-blue-800 hover:bg-blue-100';
-      case 'Concluída': return 'bg-gray-100 text-gray-800 hover:bg-gray-100';
-      case 'Cancelada': return 'bg-red-100 text-red-800 hover:bg-red-100';
-      default: return 'bg-gray-100 text-gray-800 hover:bg-gray-100';
-    }
+    return STATUS_COLORS[status] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
   };
 
   const getSlaColor = (sla: string) => {
@@ -50,6 +48,13 @@ export function InscricaoList({ onSelect }: InscricaoListProps) {
       default: return 'text-gray-600';
     }
   };
+
+  const paginatedInscricoes = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return inscricoes.slice(start, start + ITEMS_PER_PAGE);
+  }, [inscricoes, currentPage]);
+
+  const totalPages = Math.ceil(inscricoes.length / ITEMS_PER_PAGE);
 
   if (loading) {
     return (
@@ -84,14 +89,14 @@ export function InscricaoList({ onSelect }: InscricaoListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {inscricoes.length === 0 ? (
+                {paginatedInscricoes.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
                       Nenhuma inscrição encontrada.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  inscricoes.map((inscricao) => (
+                  paginatedInscricoes.map((inscricao) => (
                     <TableRow 
                       key={inscricao.id} 
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -112,6 +117,13 @@ export function InscricaoList({ onSelect }: InscricaoListProps) {
               </TableBody>
             </Table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-4 space-x-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+              <span className="text-sm text-gray-500">Página {currentPage} de {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>Próxima</Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
