@@ -191,13 +191,23 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
 
     // Now, cascade rules for Inscricao Status based on ALL projects for this Inscricao
     const siblings = await prisma.process.findMany({ where: { idSolicitacao: process.idSolicitacao } });
-    const simulatedSiblings = siblings.map(s => s.id === process.id ? { 
-      ...s, 
-      status: newStatus,
-      statusAnuencia: module === 'anuencia' ? newStatus : s.statusAnuencia,
-      statusTravessia: module === 'travessia' ? newStatus : s.statusTravessia,
-      statusAmbiental: module === 'ambiental' ? newStatus : s.statusAmbiental 
-    } : s);
+    
+    // Simulate what the siblings will look like after this update
+    const updatedSiblings = siblings.map(s => {
+      if (s.id === process.id) {
+          return {
+              ...s,
+              status: newStatus,
+              statusAnuencia: module === 'anuencia' ? newStatus : s.statusAnuencia,
+              statusTravessia: module === 'travessia' ? newStatus : s.statusTravessia,
+              statusAmbiental: module === 'ambiental' ? newStatus : s.statusAmbiental,
+              pendenciaAnuencia: dataToUpdate.pendenciaAnuencia ?? s.pendenciaAnuencia,
+              pendenciaTravessia: dataToUpdate.pendenciaTravessia ?? s.pendenciaTravessia,
+              pendenciaAmbiental: dataToUpdate.pendenciaAmbiental ?? s.pendenciaAmbiental,
+          };
+      }
+      return s;
+    });
     
     let newInscricaoStatus = process.statusInscricao;
     
@@ -205,28 +215,39 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         if (newStatus === 'NEGADO' || newStatus === 'DUP') {
             newInscricaoStatus = 'EM ANDAMENTO';
         }
-        const anuenciaSiblings = simulatedSiblings.filter(s => s.pendenciaAnuencia || s.statusAnuencia !== null);
-        const allAtendido = anuenciaSiblings.length > 0 && anuenciaSiblings.every(s => s.statusAnuencia === 'ATENDIDO');
-        if (allAtendido) {
-             // Only approve Inscricao if no other global pendencies exist on these projects?
-             // As a simple fix, we mark as APROVADO if all anuencia is done (layer 1 might need further refinement later)
-             newInscricaoStatus = 'APROVADO';
+        
+        // Se para a Inscrição inteira, não há mais nenhuma pendência de anuência
+        const isAnuenciaDone = updatedSiblings.every(s => !s.pendenciaAnuencia);
+        
+        if (isAnuenciaDone) {
+            // Se ainda tem próximos passos na fila
+            const hasMoreSteps = updatedSiblings.some(s => s.pendenciaTravessia || s.pendenciaAmbiental);
+            if (hasMoreSteps) {
+                 newInscricaoStatus = 'NÃO INICIADO';
+            } else {
+                 // Terminou tudo
+                 newInscricaoStatus = 'APROVADO';
+            }
         }
     } else if (module === 'travessia') {
         const triggersEmAndamento = ['PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA'];
         if (triggersEmAndamento.includes(newStatus)) {
             newInscricaoStatus = 'EM ANDAMENTO';
         }
-        const travessiaSiblings = simulatedSiblings.filter(s => s.pendenciaTravessia || s.statusTravessia !== null);
-        const allAprovado = travessiaSiblings.length > 0 && travessiaSiblings.every(s => s.statusTravessia === 'APROVADO');
-        if (allAprovado) {
-            newInscricaoStatus = 'APROVADO';
+        
+        const isTravessiaDone = updatedSiblings.every(s => !s.pendenciaTravessia);
+        if (isTravessiaDone) {
+             const hasMoreSteps = updatedSiblings.some(s => s.pendenciaAmbiental);
+             if (hasMoreSteps) {
+                 newInscricaoStatus = 'NÃO INICIADO';
+             } else {
+                 newInscricaoStatus = 'APROVADO';
+             }
         }
     } else if (module === 'ambiental') {
-        const ambientalSiblings = simulatedSiblings.filter(s => s.pendenciaAmbiental || s.statusAmbiental !== null);
-        const allAprovado = ambientalSiblings.length > 0 && ambientalSiblings.every(s => s.statusAmbiental === 'APROVADO');
-        if (allAprovado) {
-            newInscricaoStatus = 'APROVADO';
+        const isAmbientalDone = updatedSiblings.every(s => !s.pendenciaAmbiental);
+        if (isAmbientalDone) {
+             newInscricaoStatus = 'APROVADO';
         }
     }
 
