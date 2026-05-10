@@ -83,6 +83,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   // Observation Modal State
   const [obsModal, setObsModal] = useState<{isOpen: boolean, inscricao: string, projeto: string | null, type: string} | null>(null);
   const [newObs, setNewObs] = useState('');
+  const [isSubmittingObs, setIsSubmittingObs] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const showSuccess = (message: string) => {
@@ -93,11 +94,16 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   };
 
   const handleSubmitObservation = async () => {
-    if (!obsModal || !newObs.trim()) return;
-    await handleSaveObservacao(obsModal.inscricao, obsModal.projeto, newObs);
-    setNewObs('');
-    setObsModal(null);
-    showSuccess('Observação salva!');
+    if (!obsModal || !newObs.trim() || isSubmittingObs) return;
+    setIsSubmittingObs(true);
+    try {
+      await handleSaveObservacao(obsModal.inscricao, obsModal.projeto, newObs);
+      setNewObs('');
+      setObsModal(null);
+      showSuccess('Observação salva!');
+    } finally {
+      setIsSubmittingObs(false);
+    }
   };
 
   const handleBack = () => {
@@ -157,7 +163,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       map.get(key).projetos.add(p.projeto);
     });
     return Array.from(map.values());
-  }, [processes]);
+  }, [processes, moduleName]);
 
   // Group by Projeto (Layer 2)
   const projetos = useMemo(() => {
@@ -638,9 +644,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     {(moduleName === 'ambiental' || moduleName === 'travessia' || moduleName === 'anuencia') && (
                       <th className="px-6 py-3 font-medium text-nowrap">DATA TRIAGEM</th>
                     )}
-                    {(moduleName === 'ambiental' || moduleName === 'travessia') && (
-                      <th className="px-6 py-3 font-medium text-nowrap">DATA ANUÊNCIA</th>
-                    )}
                     
                     <th className="px-6 py-3 font-medium">MUNICÍPIO</th>
                     <th className="px-6 py-3 font-medium">REGIONAL</th>
@@ -679,9 +682,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       )}
                       {(moduleName === 'ambiental' || moduleName === 'travessia' || moduleName === 'anuencia') && (
                         <td className="px-6 py-4 text-nowrap">{item.dataAprovacao}</td>
-                      )}
-                      {(moduleName === 'ambiental' || moduleName === 'travessia') && (
-                        <td className="px-6 py-4 text-nowrap">{item.dataAnuencia}</td>
                       )}
                       
                       <td className="px-6 py-4">{item.municipio}</td>
@@ -1229,7 +1229,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
               </button>
               <button
                 onClick={handleSubmitObservation}
-                disabled={!newObs.trim()}
+                disabled={!newObs.trim() || isSubmittingObs}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg shadow-sm transition-colors flex items-center gap-2"
               >
                 <Check className="w-4 h-4" />

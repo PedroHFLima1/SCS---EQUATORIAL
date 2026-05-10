@@ -97,12 +97,18 @@ export function TriagemTable({ items }: TriagemTableProps) {
   // Observation Modal state
   const [obsModal, setObsModal] = useState<{isOpen: boolean, idSolicitacao: string, projeto: string | null, type: string} | null>(null);
   const [newObs, setNewObs] = useState('');
+  const [isSubmittingObs, setIsSubmittingObs] = useState(false);
 
   const handleSubmitObservation = async () => {
-    if (!obsModal || !newObs.trim()) return;
-    await handleSaveObservacao(obsModal.idSolicitacao, obsModal.projeto, newObs);
-    setNewObs('');
-    setObsModal(null);
+    if (!obsModal || !newObs.trim() || isSubmittingObs) return;
+    setIsSubmittingObs(true);
+    try {
+      await handleSaveObservacao(obsModal.idSolicitacao, obsModal.projeto, newObs);
+      setNewObs('');
+      setObsModal(null);
+    } finally {
+      setIsSubmittingObs(false);
+    }
   };
 
   const handleSaveObservacao = async (inscricao: string, projeto: string | null, observacao: string) => {
@@ -641,7 +647,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
               </button>
               <button
                 onClick={handleSubmitObservation}
-                disabled={!newObs.trim()}
+                disabled={!newObs.trim() || isSubmittingObs}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-lg shadow-sm transition-colors flex items-center gap-2"
               >
                 Salvar

@@ -39,6 +39,7 @@ export function ProcessTreatmentModal({
   const [tipo, setTipo] = useState('');
   const [rodovia, setRodovia] = useState('');
   const [km, setKm] = useState('');
+  const [taxaPaga, setTaxaPaga] = useState('NÃO');
 
   // Flags state
   const [flags, setFlags] = useState({
@@ -71,6 +72,7 @@ export function ProcessTreatmentModal({
       setTipo(process.tipo || '');
       setRodovia(process.rodovia || '');
       setKm(process.km || '');
+      setTaxaPaga(process.taxa || process.taxaPaga || 'NÃO');
     }
   }, [process, isOpen]);
 
@@ -142,7 +144,8 @@ export function ProcessTreatmentModal({
           dataVencimento,
           tipo,
           rodovia,
-          km
+          km,
+          taxa: taxaPaga
         }),
       });
 
@@ -233,7 +236,7 @@ export function ProcessTreatmentModal({
                 </select>
               </div>
 
-              {newStatus === 'PROTOCOLADO' && module === 'travessia' && (
+              {['TAXA', 'PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO', 'APROVADO'].includes(newStatus) && module === 'travessia' && (
                 <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="col-span-2">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -241,60 +244,80 @@ export function ProcessTreatmentModal({
                       Dados do Protocolo
                     </h4>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo *</label>
-                    <input
-                      type="text"
-                      value={protocol}
-                      onChange={(e) => setProtocol(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor</label>
-                    <input
-                      type="text"
-                      value={valor}
-                      onChange={(e) => setValor(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Vencimento Boleto</label>
-                    <input
-                      type="date"
-                      value={dataVencimento}
-                      onChange={(e) => setDataVencimento(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Tipo</label>
-                    <input
-                      type="text"
-                      value={tipo}
-                      onChange={(e) => setTipo(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Rodovia</label>
-                    <input
-                      type="text"
-                      value={rodovia}
-                      onChange={(e) => setRodovia(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">KM</label>
-                    <input
-                      type="text"
-                      value={km}
-                      onChange={(e) => setKm(e.target.value)}
-                      className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                    />
-                  </div>
+                  {['PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO', 'APROVADO'].includes(newStatus) && (
+                    <>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo {newStatus.startsWith('PROTOCOLADO') && '*'}</label>
+                        <input
+                          type="text"
+                          value={protocol}
+                          onChange={(e) => setProtocol(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Tipo</label>
+                        <input
+                          type="text"
+                          value={tipo}
+                          onChange={(e) => setTipo(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Rodovia</label>
+                        <input
+                          type="text"
+                          value={rodovia}
+                          onChange={(e) => setRodovia(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">KM</label>
+                        <input
+                          type="text"
+                          value={km}
+                          onChange={(e) => setKm(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                    </>
+                  )}
+                  {['TAXA', 'PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO'].includes(newStatus) && (
+                    <>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor</label>
+                        <input
+                          type="text"
+                          value={valor}
+                          onChange={(e) => setValor(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Vencimento Boleto</label>
+                        <input
+                          type="date"
+                          value={dataVencimento}
+                          onChange={(e) => setDataVencimento(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Taxa Paga?</label>
+                        <select
+                          value={taxaPaga}
+                          onChange={(e) => setTaxaPaga(e.target.value)}
+                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                        >
+                          <option value="NÃO">Não</option>
+                          <option value="SIM">Sim</option>
+                          <option value="ISENTO">Isento</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -325,6 +348,18 @@ export function ProcessTreatmentModal({
                             onChange={(e) => setValor(e.target.value)}
                             className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
                           />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Taxa Paga?</label>
+                          <select
+                            value={taxaPaga}
+                            onChange={(e) => setTaxaPaga(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          >
+                            <option value="NÃO">Não</option>
+                            <option value="SIM">Sim</option>
+                            <option value="ISENTO">Isento</option>
+                          </select>
                         </div>
                       </>
                   )}
