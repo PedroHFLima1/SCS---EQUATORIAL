@@ -220,11 +220,11 @@ export default function TravessiaPage() {
       {/* Summary Cards */}
       <div className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: 'NÃO SE APLICA', count: processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'NÃO SE APLICA').length, color: 'border-gray-500' },
-          { label: 'NÃO INICIADOS', count: processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'NÃO INICIADO').length, color: 'border-yellow-500' },
-          { label: 'EM ANDAMENTO', count: processes.filter(p => EM_ANDAMENTO_STATUSES.includes(p.statusInscricaoTravessia || p.status)).length, color: 'border-blue-500' },
-          { label: 'APROVADOS', count: processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'APROVADO').length, color: 'border-green-500' },
-          { label: 'CANCELADOS', count: processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'CANCELADO' || (p.statusInscricaoTravessia || p.status) === 'REPROVADO').length, color: 'border-red-500' },
+          { label: 'NÃO SE APLICA', count: [...new Set(processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'NÃO SE APLICA').map(p => p.idSolicitacao || p.inscricao))].length, color: 'border-gray-500' },
+          { label: 'NÃO INICIADOS', count: [...new Set(processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'NÃO INICIADO').map(p => p.idSolicitacao || p.inscricao))].length, color: 'border-yellow-500' },
+          { label: 'EM ANDAMENTO', count: [...new Set(processes.filter(p => EM_ANDAMENTO_STATUSES.includes(p.statusInscricaoTravessia || p.status)).map(p => p.idSolicitacao || p.inscricao))].length, color: 'border-blue-500' },
+          { label: 'APROVADOS', count: [...new Set(processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'APROVADO').map(p => p.idSolicitacao || p.inscricao))].length, color: 'border-green-500' },
+          { label: 'CANCELADOS', count: [...new Set(processes.filter(p => (p.statusInscricaoTravessia || p.status) === 'CANCELADO' || (p.statusInscricaoTravessia || p.status) === 'REPROVADO').map(p => p.idSolicitacao || p.inscricao))].length, color: 'border-red-500' },
         ].map((card) => (
           <div key={card.label} className={`rounded-lg bg-white dark:bg-gray-900 p-4 shadow-sm border-b-4 ${card.color}`}>
             <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">{card.label}</div>

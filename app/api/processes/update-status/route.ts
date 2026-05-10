@@ -70,6 +70,14 @@ export async function POST(request: Request) {
            if (newProjetoStatus) {
                // Update Project which will then cascade to Inscricao
                await cascadeProjectUpdate(updatedProtocol.processId, newProjetoStatus, user, 'travessia');
+           } else {
+               const p = await prisma.process.findUnique({ where: { id: updatedProtocol.processId }});
+               if (p) {
+                 await prisma.process.updateMany({
+                   where: { OR: [{ id: p.id }, { idSolicitacao: p.idSolicitacao }] },
+                   data: { statusUpdatedAt: new Date() }
+                 });
+               }
            }
        }
        return NextResponse.json({ success: true });
@@ -132,10 +140,11 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     const process = await prisma.process.findUnique({ where: { id: processId } });
     if (!process) return null;
     
-    let dataToUpdate: any = {};
+    let dataToUpdate: any = {
+      statusUpdatedAt: new Date()
+    };
     if (process.status !== newStatus) {
       dataToUpdate.status = newStatus;
-      dataToUpdate.statusUpdatedAt = new Date();
       // Handle SLA
       const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
       if (terminalStatuses.includes(newStatus) && process.statusUpdatedAt) {
@@ -274,7 +283,7 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
 
     if (newInscricaoStatus !== currentInscricaoStatus) {
         // Propagate Inscrição status to all siblings
-        let updateData: any = { statusInscricao: newInscricaoStatus };
+        let updateData: any = { statusInscricao: newInscricaoStatus, statusUpdatedAt: new Date() };
         if (module === 'anuencia') updateData.statusInscricaoAnuencia = newInscricaoStatus;
         if (module === 'travessia') updateData.statusInscricaoTravessia = newInscricaoStatus;
         if (module === 'ambiental') updateData.statusInscricaoAmbiental = newInscricaoStatus;

@@ -110,7 +110,7 @@ export function ProcessTreatmentModal({
               return;
           }
           if (newStatus === 'PROTOCOLADO' && (!protocol || !dataProtocolo)) {
-              alert('N° PROTOCOLO e DATA PROTOCOLO são obrigatórios para transição para PROTOCOLADO.');
+              alert('Adicione o Protocolo Manualmente através da tabela antes de avançar para PROTOCOLADO.');
               return;
           }
           if (newStatus === 'APROVADO' && !dataAprovacao) {
@@ -236,92 +236,9 @@ export function ProcessTreatmentModal({
                 </select>
               </div>
 
-              {['TAXA', 'PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO', 'APROVADO'].includes(newStatus) && module === 'travessia' && (
-                <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="col-span-2">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-500" />
-                      Dados do Protocolo
-                    </h4>
-                  </div>
-                  {['PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO', 'APROVADO'].includes(newStatus) && (
-                    <>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo {newStatus.startsWith('PROTOCOLADO') && '*'}</label>
-                        <input
-                          type="text"
-                          value={protocol}
-                          onChange={(e) => setProtocol(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Tipo</label>
-                        <input
-                          type="text"
-                          value={tipo}
-                          onChange={(e) => setTipo(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Rodovia</label>
-                        <input
-                          type="text"
-                          value={rodovia}
-                          onChange={(e) => setRodovia(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">KM</label>
-                        <input
-                          type="text"
-                          value={km}
-                          onChange={(e) => setKm(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                    </>
-                  )}
-                  {['TAXA', 'PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO'].includes(newStatus) && (
-                    <>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor</label>
-                        <input
-                          type="text"
-                          value={valor}
-                          onChange={(e) => setValor(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Vencimento Boleto</label>
-                        <input
-                          type="date"
-                          value={dataVencimento}
-                          onChange={(e) => setDataVencimento(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Taxa Paga?</label>
-                        <select
-                          value={taxaPaga}
-                          onChange={(e) => setTaxaPaga(e.target.value)}
-                          className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                        >
-                          <option value="NÃO">Não</option>
-                          <option value="SIM">Sim</option>
-                          <option value="ISENTO">Isento</option>
-                        </select>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Protocolado travessia form removed */}
 
-              {module === 'ambiental' && ['TAXA', 'PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
+              {module === 'ambiental' && ['TAXA', 'APROVADO'].includes(newStatus) && (
                 <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="col-span-2">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -329,7 +246,7 @@ export function ProcessTreatmentModal({
                       Dados Ambiental
                     </h4>
                   </div>
-                  {['TAXA', 'PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
+                  {['TAXA', 'APROVADO'].includes(newStatus) && (
                       <>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'TAXA' && '*'}</label>
@@ -346,40 +263,6 @@ export function ProcessTreatmentModal({
                             type="text"
                             value={valor}
                             onChange={(e) => setValor(e.target.value)}
-                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Taxa Paga?</label>
-                          <select
-                            value={taxaPaga}
-                            onChange={(e) => setTaxaPaga(e.target.value)}
-                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                          >
-                            <option value="NÃO">Não</option>
-                            <option value="SIM">Sim</option>
-                            <option value="ISENTO">Isento</option>
-                          </select>
-                        </div>
-                      </>
-                  )}
-                  {['PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo {newStatus === 'PROTOCOLADO' && '*'}</label>
-                          <input
-                            type="text"
-                            value={protocol}
-                            onChange={(e) => setProtocol(e.target.value)}
-                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data Protocolo {newStatus === 'PROTOCOLADO' && '*'}</label>
-                          <input
-                            type="date"
-                            value={dataProtocolo}
-                            onChange={(e) => setDataProtocolo(e.target.value)}
                             className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
                           />
                         </div>
