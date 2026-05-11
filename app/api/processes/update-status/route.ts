@@ -30,9 +30,22 @@ export async function POST(request: Request) {
     // If it's a protocol update (Layer 3)
     if (isLayer3 || protocolId) {
        const pId = protocolId || id;
+       
+       let protocolUpdateData: any = { status };
+       if (protocol !== undefined) protocolUpdateData.numero = protocol;
+       if (body.numeroProcesso !== undefined) protocolUpdateData.numeroProcesso = body.numeroProcesso;
+       if (body.dataAprovacao !== undefined) protocolUpdateData.dataAprovacao = body.dataAprovacao ? new Date(body.dataAprovacao) : null;
+       if (body.dataProtocolo !== undefined) protocolUpdateData.dataProtocolo = body.dataProtocolo ? new Date(body.dataProtocolo) : null;
+       if (valor !== undefined) protocolUpdateData.valor = valor;
+       if (dataVencimento !== undefined) protocolUpdateData.dataVencimento = dataVencimento;
+       if (tipo !== undefined) protocolUpdateData.tipo = tipo;
+       if (rodovia !== undefined) protocolUpdateData.rodovia = rodovia;
+       if (km !== undefined) protocolUpdateData.km = km;
+       if (taxa !== undefined) protocolUpdateData.taxa = taxa;
+
        await prisma.protocol.update({
           where: { id: pId },
-          data: { status }
+          data: protocolUpdateData
        });
        
        const updatedProtocol = await prisma.protocol.findUnique({ where: { id: pId }, include: { process: true }});
@@ -115,7 +128,15 @@ export async function POST(request: Request) {
     let processesToUpdate: any[] = [];
     if (id) {
       const process = await prisma.process.findUnique({ where: { id } });
-      if (process) processesToUpdate.push(process);
+      if (process) {
+         processesToUpdate.push(process);
+         if (body.selectedSiblings && Array.isArray(body.selectedSiblings)) {
+             const sibs = await prisma.process.findMany({ where: { id: { in: body.selectedSiblings } } });
+             for(let s of sibs) {
+                processesToUpdate.push(s);
+             }
+         }
+      }
     } else if (inscricao) {
       let whereClause: any = { OR: [{ inscricao: inscricao }, { idSolicitacao: inscricao }] };
       if (projeto) whereClause.projeto = projeto;
@@ -280,6 +301,37 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         type: 'status'
       }
     });
+
+    if (module === 'ambiental' && ['TAXA', 'PROTOCOLADO', 'APROVADO'].includes(newStatus)) {
+        const protocols = await prisma.protocol.findMany({ where: { processId: process.id } });
+        let pId;
+        if (protocols.length > 0) {
+           pId = protocols[0].id;
+        } else {
+           const np = await prisma.protocol.create({
+             data: {
+               processId: process.id,
+               numero: extraData.protocol || 'S/N',
+               status: newStatus
+             }
+           });
+           pId = np.id;
+        }
+        
+        // Update protocol with collected fields
+        let protocolUpdateData: any = { status: newStatus };
+        if (extraData.protocol) protocolUpdateData.numero = extraData.protocol;
+        if (extraData.numeroProcesso) protocolUpdateData.numeroProcesso = extraData.numeroProcesso;
+        if (extraData.dataAprovacao) protocolUpdateData.dataAprovacao = new Date(extraData.dataAprovacao);
+        if (extraData.dataProtocolo) protocolUpdateData.dataProtocolo = new Date(extraData.dataProtocolo);
+        if (extraData.valor) protocolUpdateData.valor = extraData.valor;
+        if (extraData.taxa) protocolUpdateData.taxa = extraData.taxa;
+        
+        await prisma.protocol.update({
+          where: { id: pId },
+          data: protocolUpdateData
+        });
+    }
 
     if (newInscricaoStatus !== currentInscricaoStatus) {
         // Propagate Inscrição status to all siblings

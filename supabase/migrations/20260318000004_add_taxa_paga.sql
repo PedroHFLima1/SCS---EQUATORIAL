@@ -1,0 +1,1 @@
+ALTER TABLE "Process" ADD COLUMN "taxaPaga" BOOLEAN NOT NULL DEFAULT false;
