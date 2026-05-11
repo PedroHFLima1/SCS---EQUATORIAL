@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench, Download, MessageSquarePlus, Check, Paperclip, ExternalLink, UploadCloud, DollarSign } from 'lucide-react';
+import { ArrowLeft, Home, Edit, ClipboardList, Mail, XCircle, Plus, X, Settings, FileText, MessageSquare, Wrench, Download, MessageSquarePlus, Check, Paperclip, ExternalLink, UploadCloud } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { format } from 'date-fns';
 import { useAuth } from '@/app/context/AuthContext';
@@ -342,26 +342,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
 
   const canCreateProtocol = role === 'ADMIN' || role === 'PARCEIRA';
 
-  const handleMarcarTaxaPaga = async (process: any) => {
-    if (!confirm(`Deseja informar que a taxa foi paga para o projeto ${process.projeto}?`)) return;
-    try {
-      const res = await fetch('/api/processes/update-taxa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: process.id, taxaPaga: true })
-      });
-      if (res.ok) {
-        alert('Taxa informada como paga com sucesso.');
-        window.location.reload();
-      } else {
-        alert('Erro ao atualizar a taxa.');
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Erro inesperado.');
-    }
-  };
-
   const renderAcoes = (process: any) => {
     // Determine if it's layer 2 (projeto)
     const isProjeto = !process.isLayer1 && process.projeto;
@@ -371,11 +351,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         {openTreatment && (
           <button onClick={() => openTreatment(process)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Processo">
             <Edit className="h-4 w-4" />
-          </button>
-        )}
-        {(role === 'GESTOR_TRAVESSIA' || role === 'GESTOR_AMBIENTAL') && isProjeto && !process.taxaPaga && (
-          <button onClick={() => handleMarcarTaxaPaga(process)} className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 p-1" title="Informar se Taxa foi paga">
-            <DollarSign className="h-4 w-4" />
           </button>
         )}
         <button onClick={() => handleOpenHistory(process.inscricao || process.idSolicitacao, isProjeto ? process.projeto : undefined)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1" title="Ver Histórico Completo">
@@ -469,7 +444,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
               Exportar CSV
             </Button>
           )}
-          {selectedProjeto && (moduleName === 'travessia' || moduleName === 'ambiental') && canCreateProtocol && (
+          {selectedProjeto && moduleName === 'travessia' && canCreateProtocol && (
             <Button size="sm" onClick={handleOpenProtocolModal} className="gap-2 h-8 bg-blue-600 hover:bg-blue-700 text-white">
               <Plus className="h-4 w-4" />
               Adicionar Protocolo

@@ -3,13 +3,11 @@
 
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "auth"]
 }
 
 model User {
@@ -20,7 +18,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   notifications Notification[]
-  @@schema("public")
 }
 
 model Process {
@@ -69,7 +66,6 @@ model Process {
   rodovia             String?
   km                  String?
   taxa                String?
-  taxaPaga            Boolean  @default(false)
   sla                 String?
   sharepointFolderId  String?
   module              String   @default("travessia")
@@ -81,7 +77,6 @@ model Process {
   protocols           Protocol[]
 
   @@unique([idSolicitacao, projeto])
-  @@schema("public")
 }
 
 model Protocol {
@@ -103,7 +98,6 @@ model Protocol {
   taxa            String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  @@schema("public")
 }
 
 model Movement {
@@ -115,7 +109,6 @@ model Movement {
   user        String
   module      String?  // The module where this movement happened
   type        String?  // type of movement: 'status', 'origin', 'rejection', etc.
-  @@schema("public")
 }
 
 model Notification {
@@ -128,6 +121,4 @@ model Notification {
   timestamp DateTime @default(now())
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
-  @@schema("public")
 }
-

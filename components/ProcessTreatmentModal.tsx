@@ -41,9 +41,6 @@ export function ProcessTreatmentModal({
   const [km, setKm] = useState('');
   const [taxaPaga, setTaxaPaga] = useState('NÃO');
 
-  const [siblings, setSiblings] = useState<any[]>([]);
-  const [selectedSiblings, setSelectedSiblings] = useState<string[]>([]);
-
   // Flags state
   const [flags, setFlags] = useState({
     pendenciaAnuencia: process?.pendenciaAnuencia || false,
@@ -76,24 +73,8 @@ export function ProcessTreatmentModal({
       setRodovia(process.rodovia || '');
       setKm(process.km || '');
       setTaxaPaga(process.taxa || process.taxaPaga || 'NÃO');
-      if (!process.isLayer1 && !process.isLayer3 && module === 'ambiental') {
-        const idSol = process.idSolicitacao || process.inscricao;
-        if (idSol) {
-          fetch(`/api/processes/siblings?inscricao=${idSol}&module=ambiental`)
-            .then(res => res.json())
-            .then(data => {
-              const other = data.filter((p: any) => p.id !== process.id);
-              setSiblings(other);
-              setSelectedSiblings([]);
-            })
-            .catch(console.error);
-        }
-      } else {
-        setSiblings([]);
-        setSelectedSiblings([]);
-      }
     }
-  }, [process, isOpen, module]);
+  }, [process, isOpen]);
 
   if (!isOpen || !process) return null;
 
@@ -129,7 +110,7 @@ export function ProcessTreatmentModal({
               return;
           }
           if (newStatus === 'PROTOCOLADO' && (!protocol || !dataProtocolo)) {
-              alert('N° PROTOCOLO e DATA PROTOCOLO são obrigatórios para transição para PROTOCOLADO.');
+              alert('Adicione o Protocolo Manualmente através da tabela antes de avançar para PROTOCOLADO.');
               return;
           }
           if (newStatus === 'APROVADO' && !dataAprovacao) {
@@ -164,8 +145,7 @@ export function ProcessTreatmentModal({
           tipo,
           rodovia,
           km,
-          taxa: taxaPaga,
-          selectedSiblings: module === 'ambiental' ? selectedSiblings : undefined
+          taxa: taxaPaga
         }),
       });
 
@@ -258,7 +238,7 @@ export function ProcessTreatmentModal({
 
               {/* Protocolado travessia form removed */}
 
-              {module === 'ambiental' && ['TAXA', 'PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
+              {module === 'ambiental' && ['TAXA', 'APROVADO'].includes(newStatus) && (
                 <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="col-span-2">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -266,7 +246,7 @@ export function ProcessTreatmentModal({
                       Dados Ambiental
                     </h4>
                   </div>
-                  {['TAXA', 'PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
+                  {['TAXA', 'APROVADO'].includes(newStatus) && (
                       <>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'TAXA' && '*'}</label>
@@ -288,28 +268,6 @@ export function ProcessTreatmentModal({
                         </div>
                       </>
                   )}
-                  {['PROTOCOLADO', 'APROVADO'].includes(newStatus) && (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo {newStatus === 'PROTOCOLADO' && '*'}</label>
-                          <input
-                            type="text"
-                            value={protocol}
-                            onChange={(e) => setProtocol(e.target.value)}
-                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data Protocolo {newStatus === 'PROTOCOLADO' && '*'}</label>
-                          <input
-                            type="date"
-                            value={dataProtocolo}
-                            onChange={(e) => setDataProtocolo(e.target.value)}
-                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                      </>
-                  )}
                   {newStatus === 'APROVADO' && (
                       <div>
                         <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data Aprovação *</label>
@@ -321,27 +279,6 @@ export function ProcessTreatmentModal({
                         />
                       </div>
                   )}
-                </div>
-              )}
-
-              {module === 'ambiental' && siblings && siblings.length > 0 && newStatus && newStatus !== process.status && (
-                <div className="border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Selecione os projetos para mudar de status em lote (opcional):</h4>
-                  <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
-                    {siblings.map(sib => (
-                       <label key={sib.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                         <input 
-                            type="checkbox" 
-                            checked={selectedSiblings.includes(sib.id)} 
-                            onChange={(e) => {
-                               if (e.target.checked) setSelectedSiblings([...selectedSiblings, sib.id]);
-                               else setSelectedSiblings(selectedSiblings.filter(id => id !== sib.id));
-                            }} 
-                         />
-                         {sib.projeto} (Atual: {sib.status})
-                       </label>
-                    ))}
-                  </div>
                 </div>
               )}
 
