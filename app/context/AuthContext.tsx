@@ -29,29 +29,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [company, setCompanyState] = useState<string>('');
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error('Error getting session:', error);
-      }
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setEmailState(session.user.email || '');
-        fetchProfile(session.user.id);
-      } else {
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          setUser(session.user);
+          setEmailState(session.user.email || '');
+          await fetchProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
         setLoading(false);
       }
     };
 
-    getSession();
+    initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         setLoading(true);
+        setUser(session.user);
         setEmailState(session.user.email || '');
-        fetchProfile(session.user.id);
+        await fetchProfile(session.user.id);
       } else {
+        setUser(null);
         setRoleState('PARCEIRA');
         setEmailState('');
         setNameState('');
@@ -72,20 +75,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        // Log melhorado para identificar bloqueios de RLS na API
-        console.error('SUPABASE API ERROR - Falha ao ler o perfil:', error.message, error.details);
+        console.error('Falha ao ler Supabase:', error);
         setRoleState('PARCEIRA');
-      } else if (data) {
+        return;
+      }
+
+      if (data) {
         setNameState(data.name || '');
         setCompanyState(data.company || '');
         
-        // Tratamento de segurança: Força maiúsculo para evitar falha na verificação
-        const safeProfile = (data.profile || '').toUpperCase();
+        const rawProfile = String(data.profile || '').toUpperCase().trim();
         
-        if (safeProfile === 'ADMIN') {
+        if (rawProfile === 'ADMIN') {
           setRoleState('ADMIN');
-        } else if (safeProfile === 'GESTOR') {
-          const comp = (data.company || '').toLowerCase();
+        } else if (rawProfile === 'GESTOR') {
+          const comp = String(data.company || '').toLowerCase().trim();
           if (comp.includes('ambiental')) setRoleState('GESTOR_AMBIENTAL');
           else if (comp.includes('anuência') || comp.includes('anuencia')) setRoleState('GESTOR_ANUENCIA');
           else setRoleState('GESTOR_TRAVESSIA'); 
@@ -94,7 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (err) {
-      console.error('Unexpected error fetching profile:', err);
       setRoleState('PARCEIRA');
     } finally {
       setLoading(false);
@@ -109,10 +112,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setEmailState(newEmail);
   };
 
-  const isAdmin = role === 'ADMIN';
-
   return (
-    <AuthContext.Provider value={{ role, setRole, email, setEmail, name, company, isAdmin, user, loading }}>
+    <AuthContext.Provider 
+      value={{ 
+        role, 
+        setRole, 
+        email, 
+        setEmail, 
+        name, 
+        company, 
+        isAdmin: role === 'ADMIN', 
+        user, 
+        loading 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
