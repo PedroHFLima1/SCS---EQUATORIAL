@@ -65,7 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Apontamento corrigido para a tabela nativa do Supabase
       const { data, error } = await supabase
         .from('profiles')
         .select('profile, name, company')
@@ -73,25 +72,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Erro de integração Supabase ao buscar perfil:', error.message);
+        // Log melhorado para identificar bloqueios de RLS na API
+        console.error('SUPABASE API ERROR - Falha ao ler o perfil:', error.message, error.details);
         setRoleState('PARCEIRA');
       } else if (data) {
         setNameState(data.name || '');
         setCompanyState(data.company || '');
         
-        if (data.profile === 'ADMIN') {
+        // Tratamento de segurança: Força maiúsculo para evitar falha na verificação
+        const safeProfile = (data.profile || '').toUpperCase();
+        
+        if (safeProfile === 'ADMIN') {
           setRoleState('ADMIN');
-        } else if (data.profile === 'GESTOR') {
+        } else if (safeProfile === 'GESTOR') {
           const comp = (data.company || '').toLowerCase();
           if (comp.includes('ambiental')) setRoleState('GESTOR_AMBIENTAL');
           else if (comp.includes('anuência') || comp.includes('anuencia')) setRoleState('GESTOR_ANUENCIA');
-          else setRoleState('GESTOR_TRAVESSIA');
+          else setRoleState('GESTOR_TRAVESSIA'); 
         } else {
           setRoleState('PARCEIRA');
         }
       }
     } catch (err) {
       console.error('Unexpected error fetching profile:', err);
+      setRoleState('PARCEIRA');
     } finally {
       setLoading(false);
     }
