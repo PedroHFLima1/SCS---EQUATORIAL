@@ -65,28 +65,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Aqui era o erro. Estava 'profiles' e não 'User'. E estava 'profile', não 'role'.
+      // Apontamento corrigido para a tabela nativa do Supabase
       const { data, error } = await supabase
-        .from('User')
-        .select('role, name, company')
+        .from('profiles')
+        .select('profile, name, company')
         .eq('id', userId)
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('Erro de integração Supabase ao buscar perfil:', error.message);
         setRoleState('PARCEIRA');
       } else if (data) {
         setNameState(data.name || '');
         setCompanyState(data.company || '');
         
-        // Aqui ele verifica a coluna 'role' para definir quem é quem
-        if (data.role === 'ADMIN') {
+        if (data.profile === 'ADMIN') {
           setRoleState('ADMIN');
-        } else if (data.role === 'GESTOR') {
+        } else if (data.profile === 'GESTOR') {
           const comp = (data.company || '').toLowerCase();
           if (comp.includes('ambiental')) setRoleState('GESTOR_AMBIENTAL');
           else if (comp.includes('anuência') || comp.includes('anuencia')) setRoleState('GESTOR_ANUENCIA');
-          else setRoleState('GESTOR_TRAVESSIA'); 
+          else setRoleState('GESTOR_TRAVESSIA');
         } else {
           setRoleState('PARCEIRA');
         }
