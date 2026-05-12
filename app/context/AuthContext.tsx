@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [company, setCompanyState] = useState<string>('');
 
   useEffect(() => {
-    // Check active sessions and sets the user
     const getSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error) {
@@ -46,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getSession();
 
-    // Listen for changes on auth state (logged in, signed out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -67,27 +65,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
+      // Aqui era o erro. Estava 'profiles' e não 'User'. E estava 'profile', não 'role'.
       const { data, error } = await supabase
-        .from('profiles')
-        .select('profile, name, company')
+        .from('User')
+        .select('role, name, company')
         .eq('id', userId)
         .single();
 
       if (error) {
         console.error('Error fetching profile:', error);
-        // Fallback role if profile not found
         setRoleState('PARCEIRA');
       } else if (data) {
         setNameState(data.name || '');
         setCompanyState(data.company || '');
-        // Map database profile to app role
-        if (data.profile === 'ADMIN') {
+        
+        // Aqui ele verifica a coluna 'role' para definir quem é quem
+        if (data.role === 'ADMIN') {
           setRoleState('ADMIN');
-        } else if (data.profile === 'GESTOR') {
+        } else if (data.role === 'GESTOR') {
           const comp = (data.company || '').toLowerCase();
           if (comp.includes('ambiental')) setRoleState('GESTOR_AMBIENTAL');
           else if (comp.includes('anuência') || comp.includes('anuencia')) setRoleState('GESTOR_ANUENCIA');
-          else setRoleState('GESTOR_TRAVESSIA'); // Default to Travessia if not specified
+          else setRoleState('GESTOR_TRAVESSIA'); 
         } else {
           setRoleState('PARCEIRA');
         }
