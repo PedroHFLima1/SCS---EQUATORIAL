@@ -113,7 +113,9 @@ export async function POST(request: Request) {
     
     // If it's a Layer 2 Update
     let processesToUpdate: any[] = [];
-    if (id) {
+    if (body.batchProjetoIds && body.batchProjetoIds.length > 0) {
+      processesToUpdate = await prisma.process.findMany({ where: { id: { in: body.batchProjetoIds } } });
+    } else if (id) {
       const process = await prisma.process.findUnique({ where: { id } });
       if (process) processesToUpdate.push(process);
     } else if (inscricao) {
@@ -269,6 +271,32 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
       where: { id: process.id },
       data: dataToUpdate,
     });
+
+    if (module === 'ambiental') {
+      const existingProtocol = await prisma.protocol.findFirst({ where: { processId: process.id } });
+      const protocolData = {
+        numeroProcesso: extraData.numeroProcesso !== undefined ? extraData.numeroProcesso : existingProtocol?.numeroProcesso,
+        numero: extraData.protocol || existingProtocol?.numero || "N/A",
+        valor: extraData.valor !== undefined ? extraData.valor : existingProtocol?.valor,
+        dataProtocolo: extraData.dataProtocolo ? new Date(extraData.dataProtocolo) : existingProtocol?.dataProtocolo,
+        dataAprovacao: extraData.dataAprovacao ? new Date(extraData.dataAprovacao) : existingProtocol?.dataAprovacao,
+        status: newStatus
+      };
+
+      if (existingProtocol) {
+        await prisma.protocol.update({
+          where: { id: existingProtocol.id },
+          data: protocolData
+        });
+      } else {
+        await prisma.protocol.create({
+          data: {
+            processId: process.id,
+            ...protocolData
+          }
+        });
+      }
+    }
 
     const moduleTag = module ? `[${module.toUpperCase()}] ` : '';
     await prisma.movement.create({

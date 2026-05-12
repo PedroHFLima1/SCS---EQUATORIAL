@@ -342,12 +342,50 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
 
   const canCreateProtocol = role === 'ADMIN' || role === 'PARCEIRA';
 
+  const handleToggleTaxa = async (process: any) => {
+    try {
+      const currentTaxaState = process.taxaPaga;
+      const confirmMsg = currentTaxaState ? "Marcar taxa como NÃO PAGA?" : "Informar que a Taxa foi PAGA?";
+      if (!confirm(confirmMsg)) return;
+
+      const res = await fetch('/api/processes/update-taxa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: process.id,
+          taxaPaga: !currentTaxaState
+        })
+      });
+
+      if (res.ok) {
+        showSuccess('Informação de taxa atualizada!');
+        // Ideally we would update the local state here or refresh.
+        // For simplicity, a page reload or state mutate could be done (since we don't have mutate function passed down easily for all modules, we rely on the parent or just a reload for now, or just emit a socket event if available, wait, we do have a socket event in the parent! The parent might fetch automatically).
+        // Let's just reload the page for a guaranteed fresh state.
+        window.location.reload();
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao atualizar taxa');
+    }
+  };
+
   const renderAcoes = (process: any) => {
     // Determine if it's layer 2 (projeto)
     const isProjeto = !process.isLayer1 && process.projeto;
+    const showTaxaButton = isProjeto && (moduleName === 'ambiental' || moduleName === 'travessia') && (role === 'GESTOR_TRAVESSIA' || role === 'GESTOR_AMBIENTAL' || role === 'ADMIN');
     
     return (
       <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
+        {showTaxaButton && (
+          <button 
+            onClick={() => handleToggleTaxa(process)} 
+            className={`p-1 ${process.taxaPaga ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'}`} 
+            title={process.taxaPaga ? "Taxa Paga (Clique para Desmarcar)" : "Informar se Taxa foi paga"}
+          >
+            <FileText className="h-4 w-4" />
+          </button>
+        )}
         {openTreatment && (
           <button onClick={() => openTreatment(process)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Processo">
             <Edit className="h-4 w-4" />

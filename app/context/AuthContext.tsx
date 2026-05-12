@@ -74,7 +74,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        if (error.code !== 'PGRST116') {
+          console.error('Error fetching profile:', error);
+        }
         // Fallback role if profile not found
         setRoleState('PARCEIRA');
       } else if (data) {

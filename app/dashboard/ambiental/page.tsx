@@ -344,6 +344,7 @@ export default function AmbientalPage() {
         onClose={() => setIsTreatmentOpen(false)}
         onSuccess={handleTreatmentSuccess}
         process={selectedProcess}
+        allProcesses={filteredProcesses}
         module="ambiental"
         userEmail={email || ''}
         userRole={role || ''}

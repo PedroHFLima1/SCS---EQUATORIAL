@@ -10,6 +10,7 @@ interface ProcessTreatmentModalProps {
   onClose: () => void;
   onSuccess: (updatedProcesses: any[]) => void;
   process: any;
+  allProcesses?: any[];
   module: 'anuencia' | 'travessia' | 'ambiental';
   userEmail: string;
   userRole: string;
@@ -20,6 +21,7 @@ export function ProcessTreatmentModal({
   onClose,
   onSuccess,
   process,
+  allProcesses = [],
   module,
   userEmail,
   userRole,
@@ -41,6 +43,8 @@ export function ProcessTreatmentModal({
   const [km, setKm] = useState('');
   const [taxaPaga, setTaxaPaga] = useState('NÃO');
 
+  const [selectedSiblings, setSelectedSiblings] = useState<string[]>([]);
+
   // Flags state
   const [flags, setFlags] = useState({
     pendenciaAnuencia: process?.pendenciaAnuencia || false,
@@ -50,6 +54,16 @@ export function ProcessTreatmentModal({
 
   const [hasNewEmbargoQuestion, setHasNewEmbargoQuestion] = useState<boolean | null>(null);
   const [rejectForwarding, setRejectForwarding] = useState<boolean>(false);
+
+  const siblings = React.useMemo(() => {
+    if (!process) return [];
+    if (process.isLayer1 || process.isLayer3 || module !== 'ambiental') return [];
+    return allProcesses.filter((p: any) => 
+      (p.idSolicitacao || p.inscricao) === (process.idSolicitacao || process.inscricao) && 
+      p.id !== process.id && 
+      p.projeto 
+    );
+  }, [allProcesses, process, module]);
 
   useEffect(() => {
     if (process) {
@@ -73,6 +87,7 @@ export function ProcessTreatmentModal({
       setRodovia(process.rodovia || '');
       setKm(process.km || '');
       setTaxaPaga(process.taxa || process.taxaPaga || 'NÃO');
+      setSelectedSiblings([]);
     }
   }, [process, isOpen]);
 
@@ -126,6 +141,7 @@ export function ProcessTreatmentModal({
         body: JSON.stringify({
           inscricao: process.inscricao || process.idSolicitacao,
           projeto: process.isLayer1 ? undefined : process.projeto,
+          batchProjetoIds: [process.id, ...selectedSiblings],
           isLayer1: process.isLayer1,
           isLayer3: process.isLayer3,
           protocolId: process.protocolId,
@@ -235,6 +251,41 @@ export function ProcessTreatmentModal({
                   ))}
                 </select>
               </div>
+
+              {siblings.length > 0 && newStatus && (
+                <div className="p-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl space-y-3 animate-in zoom-in-95 duration-200">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Selecione OS Projetos para Mudar de Status:</p>
+                  
+                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+                    <label className="flex items-center gap-3 p-2 rounded-lg border dark:border-slate-800 bg-blue-50 dark:bg-blue-900/10 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={true}
+                        disabled
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{process.projeto} (Atual)</span>
+                    </label>
+
+                    {siblings.map((sibling: any) => (
+                      <label key={sibling.id} className="flex items-center gap-3 p-2 rounded-lg border dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedSiblings.includes(sibling.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedSiblings([...selectedSiblings, sibling.id]);
+                            else setSelectedSiblings(selectedSiblings.filter(id => id !== sibling.id));
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                          {sibling.projeto} <span className="text-xs text-slate-400">({sibling.status})</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Protocolado travessia form removed */}
 
