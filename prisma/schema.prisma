@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider        = "prisma-client-js"
 }
@@ -14,6 +11,7 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
+  company   String?  // <-- ESSA É A LINHA NOVA QUE FALTAVA
   role      String   @default("PARCEIRA")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -35,17 +33,15 @@ model Process {
   parceiraProjeto     String?
   dataEnvioObra       DateTime?
   
-  // Campos de Controle
   pendenciaAnuencia   Boolean  @default(false)
   pendenciaTravessia  Boolean  @default(false)
   pendenciaAmbiental  Boolean  @default(false)
   
-  statusTriagem       String   @default("PENDENTE") // PENDENTE, EM_APROVACAO, FINALIZADO
+  statusTriagem       String   @default("PENDENTE")
   dataImportacao      DateTime @default(now())
   dataAprovacao       DateTime?
   aprovadoPor         String?
 
-  // Legacy fields
   inscricao           String?
   concessionaria      String?
   partner             String?
@@ -107,8 +103,8 @@ model Movement {
   description String
   date        DateTime @default(now())
   user        String
-  module      String?  // The module where this movement happened
-  type        String?  // type of movement: 'status', 'origin', 'rejection', etc.
+  module      String?
+  type        String?
 }
 
 model Notification {
