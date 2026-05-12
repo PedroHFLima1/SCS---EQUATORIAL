@@ -29,32 +29,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [company, setCompanyState] = useState<string>('');
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          setUser(session.user);
-          setEmailState(session.user.email || '');
-          await fetchProfile(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
+    // Check active sessions and sets the user
+    const getSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Error getting session:', error);
+      }
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setEmailState(session.user.email || '');
+        fetchProfile(session.user.id);
+      } else {
         setLoading(false);
       }
     };
 
-    initAuth();
+    getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Listen for changes on auth state (logged in, signed out, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
       if (session?.user) {
         setLoading(true);
-        setUser(session.user);
         setEmailState(session.user.email || '');
-        await fetchProfile(session.user.id);
+        fetchProfile(session.user.id);
       } else {
-        setUser(null);
         setRoleState('PARCEIRA');
         setEmailState('');
         setNameState('');
@@ -75,30 +74,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Falha ao ler Supabase:', error);
+        console.error('Error fetching profile:', error);
+        // Fallback role if profile not found
         setRoleState('PARCEIRA');
-        return;
-      }
-
-      if (data) {
+      } else if (data) {
         setNameState(data.name || '');
         setCompanyState(data.company || '');
-        
-        const rawProfile = String(data.profile || '').toUpperCase().trim();
-        
-        if (rawProfile === 'ADMIN') {
+        // Map database profile to app role
+        if (data.profile === 'ADMIN') {
           setRoleState('ADMIN');
-        } else if (rawProfile === 'GESTOR') {
-          const comp = String(data.company || '').toLowerCase().trim();
+        } else if (data.profile === 'GESTOR') {
+          const comp = (data.company || '').toLowerCase();
           if (comp.includes('ambiental')) setRoleState('GESTOR_AMBIENTAL');
           else if (comp.includes('anuência') || comp.includes('anuencia')) setRoleState('GESTOR_ANUENCIA');
-          else setRoleState('GESTOR_TRAVESSIA'); 
+          else setRoleState('GESTOR_TRAVESSIA'); // Default to Travessia if not specified
         } else {
           setRoleState('PARCEIRA');
         }
       }
     } catch (err) {
-      setRoleState('PARCEIRA');
+      console.error('Unexpected error fetching profile:', err);
     } finally {
       setLoading(false);
     }
@@ -112,20 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setEmailState(newEmail);
   };
 
+  const isAdmin = role === 'ADMIN';
+
   return (
-    <AuthContext.Provider 
-      value={{ 
-        role, 
-        setRole, 
-        email, 
-        setEmail, 
-        name, 
-        company, 
-        isAdmin: role === 'ADMIN', 
-        user, 
-        loading 
-      }}
-    >
+    <AuthContext.Provider value={{ role, setRole, email, setEmail, name, company, isAdmin, user, loading }}>
       {children}
     </AuthContext.Provider>
   );
