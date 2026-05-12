@@ -2,7 +2,7 @@ import { RoleGuard } from '@/components/RoleGuard';
 
 export default function TravessiaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <RoleGuard allowedRoles={['GESTOR_TRAVESSIA']}>
+    <RoleGuard allowedRoles={['GESTOR_TRAVESSIA', 'PARCEIRA']}>
       {children}
     </RoleGuard>
   );
