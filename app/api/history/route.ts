@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const inscricao = searchParams.get('inscricao');
   const projeto = searchParams.get('projeto');
+  const moduleParam = searchParams.get('module');
 
   if (!inscricao) {
     return NextResponse.json({ error: 'Inscrição is required' }, { status: 400 });
@@ -48,6 +49,11 @@ export async function GET(request: Request) {
 
     // Sort all movements by date descending
     allMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Filter by module if requested and it's not the admin dashboard
+    if (moduleParam && moduleParam !== 'admin') {
+       allMovements = allMovements.filter(m => m.module === moduleParam);
+    }
 
     return NextResponse.json(allMovements);
   } catch (error) {

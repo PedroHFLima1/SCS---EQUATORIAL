@@ -326,7 +326,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     setIsHistoryModalOpen(true);
     setHistoryLoading(true);
     try {
-      const url = projeto ? `/api/history?inscricao=${encodeURIComponent(inscricao)}&projeto=${encodeURIComponent(projeto)}` : `/api/history?inscricao=${encodeURIComponent(inscricao)}`;
+      const url = projeto ? `/api/history?inscricao=${encodeURIComponent(inscricao)}&projeto=${encodeURIComponent(projeto)}&module=${moduleName}` : `/api/history?inscricao=${encodeURIComponent(inscricao)}&module=${moduleName}`;
       const res = await fetch(url);
       const data = await res.json();
       setHistoryData(data);
@@ -545,9 +545,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                               <div className="flex flex-col gap-1 items-start">
                                 {item.statusAnuencia.size > 0 ? Array.from(item.statusAnuencia).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                    {st}
+                                    Anuência: {st}
                                   </span>
-                                )) : <span className="text-gray-500 font-medium">-</span>}
+                                )) : <span className="text-gray-500 font-medium">Anuência: NÃO INICIADO</span>}
                               </div>
                             ) : (
                               <span className="text-gray-500 font-medium">-</span>
@@ -558,9 +558,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                               <div className="flex flex-col gap-1 items-start">
                                 {item.statusAmbiental.size > 0 ? Array.from(item.statusAmbiental).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                    {st}
+                                    Ambiental: {st}
                                   </span>
-                                )) : <span className="text-gray-500 font-medium">-</span>}
+                                )) : <span className="text-gray-500 font-medium">Ambiental: NÃO INICIADO</span>}
                               </div>
                             ) : (
                               <span className="text-gray-500 font-medium">-</span>
@@ -571,9 +571,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                               <div className="flex flex-col gap-1 items-start">
                                 {item.statusTravessia.size > 0 ? Array.from(item.statusTravessia).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                    {st}
+                                    Travessia: {st}
                                   </span>
-                                )) : <span className="text-gray-500 font-medium">-</span>}
+                                )) : <span className="text-gray-500 font-medium">Travessia: NÃO INICIADO</span>}
                               </div>
                             ) : (
                               <span className="text-gray-500 font-medium">-</span>

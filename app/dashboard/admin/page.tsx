@@ -236,7 +236,10 @@ export default function AdminPage() {
       result = result.filter(p => p.concessionaria === concessionariaFilter);
     }
     if (parceiraFilter !== 'Todas') {
-      result = result.filter(p => p.partner === parceiraFilter);
+      result = result.filter(p => {
+        const processPartner = p.partner || p.parceiraProjeto || '';
+        return processPartner.toLowerCase() === parceiraFilter.toLowerCase();
+      });
     }
 
     // Sorting

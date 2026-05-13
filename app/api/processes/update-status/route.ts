@@ -156,20 +156,31 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     let dataToUpdate: any = {
       statusUpdatedAt: new Date()
     };
-    if (process.status !== newStatus) {
-      dataToUpdate.status = newStatus;
-      // Handle SLA
-      const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
-      if (terminalStatuses.includes(newStatus) && process.statusUpdatedAt) {
-         const diffMs = new Date().getTime() - new Date(process.statusUpdatedAt).getTime();
-         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-         dataToUpdate.sla = `${diffDays}d`;
-      }
+    
+    let isStatusChanged = false;
+    if (module === 'anuencia' && process.statusAnuencia !== newStatus) {
+        dataToUpdate.statusAnuencia = newStatus;
+        isStatusChanged = true;
+    } else if (module === 'ambiental' && process.statusAmbiental !== newStatus) {
+        dataToUpdate.statusAmbiental = newStatus;
+        isStatusChanged = true;
+    } else if (module === 'travessia' && process.statusTravessia !== newStatus) {
+        dataToUpdate.statusTravessia = newStatus;
+        isStatusChanged = true;
+    } else if (!['anuencia', 'ambiental', 'travessia'].includes(module) && process.status !== newStatus) {
+        dataToUpdate.status = newStatus;
+        dataToUpdate.statusProjeto = newStatus;
+        isStatusChanged = true;
     }
 
-    if (module === 'anuencia') dataToUpdate.statusAnuencia = newStatus;
-    if (module === 'ambiental') dataToUpdate.statusAmbiental = newStatus;
-    if (module === 'travessia') dataToUpdate.statusTravessia = newStatus;
+    if (isStatusChanged) {
+        const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA', 'ATENDIDO', 'NEGADO', 'DUP'];
+        if (terminalStatuses.includes(newStatus) && process.statusUpdatedAt) {
+           const diffMs = new Date().getTime() - new Date(process.statusUpdatedAt).getTime();
+           const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+           dataToUpdate.sla = `${diffDays}d`;
+        }
+    }
     
     if (extraData.protocol !== undefined) dataToUpdate.protocol = extraData.protocol;
     if (extraData.dataAprovacao !== undefined) dataToUpdate.dataAprovacao = extraData.dataAprovacao ? new Date(extraData.dataAprovacao) : null;
@@ -194,22 +205,27 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     const isApproval = (module === 'anuencia' && newStatus === 'ATENDIDO') || 
                        (['travessia', 'ambiental'].includes(module) && newStatus === 'APROVADO');
 
-    if (module === 'anuencia' && isApproval && process.pendenciaAnuencia) {
-      dataToUpdate.pendenciaAnuencia = false;
-      if (dataToUpdate.pendenciaTravessia || dataToUpdate.pendenciaAmbiental || process.pendenciaTravessia || process.pendenciaAmbiental) {
-        dataToUpdate.status = 'NOVO';
-      }
-    }
-    
-    if (module !== 'anuencia' && isApproval) {
+    if (isApproval) {
+      if (module === 'anuencia') dataToUpdate.pendenciaAnuencia = false;
       if (module === 'travessia') dataToUpdate.pendenciaTravessia = false;
       if (module === 'ambiental') dataToUpdate.pendenciaAmbiental = false;
+
       const hasRemainingPendencies = (dataToUpdate.pendenciaAnuencia ?? process.pendenciaAnuencia) || 
                                     (dataToUpdate.pendenciaTravessia ?? process.pendenciaTravessia) || 
                                     (dataToUpdate.pendenciaAmbiental ?? process.pendenciaAmbiental);
       if (hasRemainingPendencies) {
          dataToUpdate.status = 'NOVO';
+         dataToUpdate.statusProjeto = 'NOVO';
+      } else {
+         dataToUpdate.status = 'APROVADO';
+         dataToUpdate.statusProjeto = 'APROVADO';
       }
+    } else if (['ambiental', 'travessia', 'anuencia'].includes(module)) {
+       // Se está movimentando algum fluxo, o projeto como um todo está em andamento (exceto se for NÃO INICIADO)
+       if (newStatus !== 'NÃO INICIADO' && newStatus !== 'NOVO') {
+          dataToUpdate.status = 'EM ANDAMENTO';
+          dataToUpdate.statusProjeto = 'EM ANDAMENTO';
+       }
     }
 
     // Now, cascade rules for Inscricao Status based on ALL projects for this Inscricao
@@ -220,13 +236,14 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
       if (s.id === process.id) {
           return {
               ...s,
-              status: newStatus,
               statusAnuencia: module === 'anuencia' ? newStatus : s.statusAnuencia,
               statusTravessia: module === 'travessia' ? newStatus : s.statusTravessia,
               statusAmbiental: module === 'ambiental' ? newStatus : s.statusAmbiental,
               pendenciaAnuencia: dataToUpdate.pendenciaAnuencia ?? s.pendenciaAnuencia,
               pendenciaTravessia: dataToUpdate.pendenciaTravessia ?? s.pendenciaTravessia,
               pendenciaAmbiental: dataToUpdate.pendenciaAmbiental ?? s.pendenciaAmbiental,
+              // The rule below simulates the Global status change
+              status: dataToUpdate.status ?? s.status
           };
       }
       return s;

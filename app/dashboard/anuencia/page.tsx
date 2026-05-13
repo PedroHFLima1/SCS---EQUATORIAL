@@ -125,7 +125,10 @@ export default function AnuenciaPage() {
       result = result.filter(p => p.concessionaria === concessionariaFilter);
     }
     if (role !== 'PARCEIRA' && parceiraFilter !== 'Todas') {
-      result = result.filter(p => (p.partner || p.parceiraProjeto) === parceiraFilter);
+      result = result.filter(p => {
+        const processPartner = p.partner || p.parceiraProjeto || '';
+        return processPartner.toLowerCase() === parceiraFilter.toLowerCase();
+      });
     }
 
     // Sorting
