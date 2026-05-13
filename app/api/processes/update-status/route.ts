@@ -24,15 +24,26 @@ export async function POST(request: Request) {
       rodovia, 
       km,
       taxa,
-      flags
+      flags,
+      numeroProcesso,
+      dataAprovacao,
+      dataProtocolo
     } = body;
     
     // If it's a protocol update (Layer 3)
     if (isLayer3 || protocolId) {
        const pId = protocolId || id;
+       
+       let updateProtocolData: any = { status };
+       if (protocol !== undefined) updateProtocolData.numero = protocol;
+       if (dataProtocolo !== undefined) updateProtocolData.dataProtocolo = dataProtocolo ? new Date(dataProtocolo) : null;
+       if (numeroProcesso !== undefined) updateProtocolData.numeroProcesso = numeroProcesso;
+       if (dataAprovacao !== undefined) updateProtocolData.dataAprovacao = dataAprovacao ? new Date(dataAprovacao) : null;
+       if (valor !== undefined) updateProtocolData.valor = valor;
+
        await prisma.protocol.update({
           where: { id: pId },
-          data: { status }
+          data: updateProtocolData
        });
        
        const updatedProtocol = await prisma.protocol.findUnique({ where: { id: pId }, include: { process: true }});
@@ -127,7 +138,7 @@ export async function POST(request: Request) {
     const updatedProcesses = [];
     for (const process of processesToUpdate) {
        const u = await cascadeProjectUpdate(process.id, status, user, module || 'triagem', {
-         protocol, valor, dataVencimento, tipo, rodovia, km, taxa, justification, flags, isReturnToAnuencia: body.returnToAnuencia, rejectForwarding: body.rejectForwarding
+         protocol, valor, dataVencimento, tipo, rodovia, km, taxa, justification, flags, isReturnToAnuencia: body.returnToAnuencia, rejectForwarding: body.rejectForwarding, numeroProcesso, dataAprovacao, dataProtocolo
        });
        if(u) updatedProcesses.push(u);
     }
@@ -161,9 +172,7 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     if (module === 'travessia') dataToUpdate.statusTravessia = newStatus;
     
     if (extraData.protocol !== undefined) dataToUpdate.protocol = extraData.protocol;
-    if (extraData.numeroProcesso !== undefined) dataToUpdate.numeroProcesso = extraData.numeroProcesso;
     if (extraData.dataAprovacao !== undefined) dataToUpdate.dataAprovacao = extraData.dataAprovacao ? new Date(extraData.dataAprovacao) : null;
-    if (extraData.dataProtocolo !== undefined) dataToUpdate.dataProtocolo = extraData.dataProtocolo ? new Date(extraData.dataProtocolo) : null;
     if (extraData.valor !== undefined) dataToUpdate.valor = extraData.valor;
     if (extraData.dataVencimento !== undefined) dataToUpdate.dataVencimento = extraData.dataVencimento;
     if (extraData.tipo !== undefined) dataToUpdate.tipo = extraData.tipo;
@@ -237,7 +246,7 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         }
     } else if (module === 'travessia') {
         const statuses = updatedSiblings.map(s => s.statusTravessia || s.status);
-        const triggersEmAndamento = ['PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA'];
+        const triggersEmAndamento = ['PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'EM CORREÇÃO', 'TAXA'];
         if (statuses.some(s => triggersEmAndamento.includes(s!))) {
             newInscricaoStatus = 'EM ANDAMENTO';
         }
@@ -248,7 +257,7 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         }
     } else if (module === 'ambiental') {
         const statuses = updatedSiblings.map(s => s.statusAmbiental || s.status);
-        const triggersEmAndamento = ['EM ESTUDO', 'TAXA', 'PROTOCOLADO'];
+        const triggersEmAndamento = ['EM ESTUDO', 'REGISTRO SEMAD', 'PROTOCOLADO'];
         if (statuses.some(s => triggersEmAndamento.includes(s!))) {
             newInscricaoStatus = 'EM ANDAMENTO';
         }
@@ -272,8 +281,10 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
       data: dataToUpdate,
     });
 
-    if (module === 'ambiental') {
-      const existingProtocol = await prisma.protocol.findFirst({ where: { processId: process.id } });
+    if (module === 'ambiental' || module === 'travessia') {
+      const existingProtocol = await prisma.protocol.findFirst({ 
+        where: { processId: process.id }
+      });
       const protocolData = {
         numeroProcesso: extraData.numeroProcesso !== undefined ? extraData.numeroProcesso : existingProtocol?.numeroProcesso,
         numero: extraData.protocol || existingProtocol?.numero || "N/A",

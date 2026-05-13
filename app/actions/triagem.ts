@@ -36,28 +36,45 @@ export async function importTriagemData(data: any[]) {
       const parsedDate = item.DATA_ENVIO_OBRA_SUGOP ? new Date(item.DATA_ENVIO_OBRA_SUGOP) : null;
       const dataEnvioObra = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : null;
 
+      const statusProjetoToUpdate = item.STATUS_PROJETO || item.STATUS;
+
       try {
-        await prisma.process.upsert({
+        const existingProcess = await prisma.process.findUnique({
+          where: {
+            idSolicitacao_projeto: {
+              idSolicitacao: idSolicitacao,
+              projeto: projeto,
+            }
+          }
+        });
+
+        const updateData: any = {
+          idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : undefined,
+          municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : undefined,
+          regional: item.REGIONAL ? String(item.REGIONAL) : undefined,
+          superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : undefined,
+          fluxoPassagem: fluxoPassagem !== 'NAO' ? fluxoPassagem : undefined,
+          fluxoTravessia: fluxoTravessia !== 'NAO' ? fluxoTravessia : undefined,
+          fluxoTravessiaLt: fluxoTravessiaLt !== 'NAO' ? fluxoTravessiaLt : undefined,
+          fluxoAmbiental: fluxoAmbiental !== 'NAO' ? fluxoAmbiental : undefined,
+          parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : undefined,
+          dataEnvioObra: dataEnvioObra || undefined,
+        };
+
+        if (statusProjetoToUpdate) {
+          updateData.status = String(statusProjetoToUpdate);
+          updateData.statusProjeto = String(statusProjetoToUpdate);
+          updateData.statusUpdatedAt = new Date();
+        }
+
+        const upserted = await prisma.process.upsert({
           where: {
             idSolicitacao_projeto: {
               idSolicitacao: idSolicitacao,
               projeto: projeto,
             }
           },
-          update: {
-            idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
-            municipio: item.MUNICIPIO ? String(item.MUNICIPIO) : null,
-            regional: item.REGIONAL ? String(item.REGIONAL) : null,
-            superintendencia: item.SUPERINTENDENCIA ? String(item.SUPERINTENDENCIA) : null,
-            fluxoPassagem: fluxoPassagem,
-            fluxoTravessia: fluxoTravessia,
-            fluxoTravessiaLt: fluxoTravessiaLt,
-            fluxoAmbiental: fluxoAmbiental,
-            parceiraProjeto: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
-            dataEnvioObra: dataEnvioObra,
-            // Não atualizamos as pendências se já existem, para não sobrescrever o trabalho da Parceira
-            // A menos que a regra de negócio exija. Vamos assumir que o upsert atualiza os dados base.
-          },
+          update: updateData,
           create: {
             idSolicitacao: idSolicitacao,
             idSugopGeruso: item.ID_SUGOP_GERUSO ? String(item.ID_SUGOP_GERUSO) : null,
@@ -82,8 +99,8 @@ export async function importTriagemData(data: any[]) {
             partner: item.PARCEIRA_PROJETO ? String(item.PARCEIRA_PROJETO) : null,
             concessionaria: null,
             statusInscricao: 'NÃO INICIADO',
-            statusProjeto: 'NÃO INICIADO',
-            status: 'NOVO',
+            statusProjeto: statusProjetoToUpdate ? String(statusProjetoToUpdate) : 'NÃO INICIADO',
+            status: statusProjetoToUpdate ? String(statusProjetoToUpdate) : 'NOVO',
             protocol: null,
             valor: null,
             dataVencimento: null,
@@ -94,6 +111,17 @@ export async function importTriagemData(data: any[]) {
             module: 'travessia',
           }
         });
+        
+        if (existingProcess && statusProjetoToUpdate && String(statusProjetoToUpdate) !== existingProcess.status) {
+             await prisma.movement.create({
+                data: {
+                   processId: upserted.id,
+                   description: 'Alteração de status via Importação Massiva',
+                   user: 'Sistema',
+                   type: 'status'
+                }
+             });
+        }
         importedCount++;
       } catch (rowError) {
         console.error(`Erro ao importar linha (Solicitação: ${idSolicitacao}, Projeto: ${projeto}):`, rowError);

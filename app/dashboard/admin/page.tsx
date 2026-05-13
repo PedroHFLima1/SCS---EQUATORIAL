@@ -549,7 +549,7 @@ export default function AdminPage() {
           >
             <div className="flex items-center">
               <Eye className="mr-2 h-4 w-4" />
-              Auditoria Master (Olho de Deus)
+              Auditoria
             </div>
           </button>
           <button
@@ -690,7 +690,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab Content: Auditoria Master */}
+      {/* Tab Content: Auditoria */}
       {activeTab === 'auditoria' && (
         <div className="rounded-lg bg-white dark:bg-gray-900 shadow-sm border border-transparent dark:border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 dark:border-gray-800 p-4 gap-4">
@@ -753,6 +753,7 @@ export default function AdminPage() {
                   <option>CANCELADO</option>
                   <option>NÃO INICIADO</option>
                   <option>TAXA</option>
+                  <option>REGISTRO SEMAD</option>
                   <option>PROTOCOLADO</option>
                   <option>APROVADO</option>
                   <option>EM CORREÇÃO</option>
@@ -845,7 +846,7 @@ export default function AdminPage() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Este valor será usado como base para calcular o atraso de todos os projetos na Auditoria Master.
+                Este valor será usado como base para calcular o atraso de todos os projetos na Auditoria.
               </p>
             </div>
           </div>
@@ -1186,6 +1187,7 @@ export default function AdminPage() {
                   <option value="DUP">DUP</option>
                   <option value="EM ESTUDO">EM ESTUDO</option>
                   <option value="TAXA">TAXA</option>
+                  <option value="REGISTRO SEMAD">REGISTRO SEMAD</option>
                   <option value="EM CORREÇÃO">EM CORREÇÃO</option>
                   <option value="EM ANDAMENTO CONCESSIONÁRIA">EM ANDAMENTO CONCESSIONÁRIA</option>
                 </select>

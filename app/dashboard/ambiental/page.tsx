@@ -284,7 +284,7 @@ export default function AmbientalPage() {
                   <option>Todas as Fases</option>
                   <option>CANCELADO</option>
                   <option>NÃO INICIADO</option>
-                  <option>TAXA</option>
+                  <option>REGISTRO SEMAD</option>
                   <option>PROTOCOLADO</option>
                   <option>APROVADO</option>
                   <option>EM CORREÇÃO</option>

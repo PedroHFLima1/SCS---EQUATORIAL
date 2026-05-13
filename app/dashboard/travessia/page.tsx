@@ -293,7 +293,7 @@ export default function TravessiaPage() {
                   <option>PREVISÃO DE BOLETO</option>
                   <option>AGUARDANDO PAGAMENTO</option>
                   <option>EM TRATATIVA</option>
-                  <option>CORREÇÃO</option>
+                  <option>EM CORREÇÃO</option>
                   <option>EM ELABORAÇÃO</option>
                 </select>
               </div>

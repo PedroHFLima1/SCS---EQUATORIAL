@@ -119,13 +119,17 @@ export function ProcessTreatmentModal({
 
   const handleSave = async () => {
     try {
-      if (module === 'ambiental') {
-          if (newStatus === 'TAXA' && (!numeroProcesso || !valor)) {
+      if (module === 'ambiental' || module === 'travessia') {
+          if (module === 'ambiental' && newStatus === 'REGISTRO SEMAD' && !numeroProcesso) {
+              alert('N° PROCESSO é obrigatório para transição para REGISTRO SEMAD.');
+              return;
+          }
+          if (module === 'travessia' && newStatus === 'TAXA' && (!numeroProcesso || !valor)) {
               alert('N° PROCESSO e VALOR DA TAXA são obrigatórios para transição para TAXA.');
               return;
           }
-          if (newStatus === 'PROTOCOLADO' && (!protocol || !dataProtocolo)) {
-              alert('Adicione o Protocolo Manualmente através da tabela antes de avançar para PROTOCOLADO.');
+          if (newStatus.includes('PROTOCOLADO') && (!protocol || !dataProtocolo)) {
+              alert('Nº Protocolo e Data de Protocolo são obrigatórios.');
               return;
           }
           if (newStatus === 'APROVADO' && !dataAprovacao) {
@@ -191,9 +195,9 @@ export function ProcessTreatmentModal({
       case 'anuencia':
         return ['ATENDIDO', 'NEGADO', 'DUP'];
       case 'travessia':
-        return ['NOVO', 'PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA', 'APROVADO'];
+        return ['NOVO', 'PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'EM CORREÇÃO', 'TAXA', 'APROVADO'];
       case 'ambiental':
-        return ['EM ESTUDO', 'NÃO INICIADO', 'TAXA', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
+        return ['EM ESTUDO', 'NÃO INICIADO', 'REGISTRO SEMAD', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
       default:
         return [];
     }
@@ -287,17 +291,60 @@ export function ProcessTreatmentModal({
                 </div>
               )}
 
-              {/* Protocolado travessia form removed */}
-
-              {module === 'ambiental' && ['TAXA', 'APROVADO'].includes(newStatus) && (
+              {(module === 'ambiental' || module === 'travessia') && (['TAXA', 'REGISTRO SEMAD', 'APROVADO', 'PROTOCOLADO', 'EM CORREÇÃO'].includes(newStatus)) && (
                 <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="col-span-2">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
                       <FileText className="h-4 w-4 text-green-500" />
-                      Dados Ambiental
+                      Dados Complementares
                     </h4>
                   </div>
-                  {['TAXA', 'APROVADO'].includes(newStatus) && (
+                  {newStatus.includes('PROTOCOLADO') && (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo *</label>
+                          <input
+                            type="text"
+                            value={protocol}
+                            onChange={(e) => setProtocol(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Data de Protocolo *</label>
+                          <input
+                            type="date"
+                            value={dataProtocolo}
+                            onChange={(e) => setDataProtocolo(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </>
+                  )}
+                  {module === 'ambiental' && ['REGISTRO SEMAD', 'APROVADO'].includes(newStatus) && (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'REGISTRO SEMAD' && '*'}</label>
+                          <input
+                            type="text"
+                            value={numeroProcesso}
+                            onChange={(e) => setNumeroProcesso(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                        {/* Only show valor if previously used, prompt doesn't say remove but 'Exige preenchimento manual de [Nº Processo]' */}
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor Taxa</label>
+                          <input
+                            type="text"
+                            value={valor}
+                            onChange={(e) => setValor(e.target.value)}
+                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </>
+                  )}
+                  {module === 'travessia' && ['TAXA', 'APROVADO'].includes(newStatus) && (
                       <>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'TAXA' && '*'}</label>
@@ -346,7 +393,7 @@ export function ProcessTreatmentModal({
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              {hasRemainingFlags() ? (
+              {hasRemainingFlags() && module === 'anuencia' ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
                     <h4 className="font-bold text-blue-900 dark:text-blue-300 flex items-center gap-2 mb-2">
@@ -498,7 +545,7 @@ export function ProcessTreatmentModal({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={isSubmitting || (hasNewEmbargoQuestion === null && !hasRemainingFlags()) || (hasNewEmbargoQuestion === true && !flags.pendenciaAnuencia && !flags.pendenciaTravessia && !flags.pendenciaAmbiental)}
+                disabled={isSubmitting || (hasRemainingFlags() && module === 'anuencia' ? false : hasNewEmbargoQuestion === null) || (hasNewEmbargoQuestion === true && !flags.pendenciaAnuencia && !flags.pendenciaTravessia && !flags.pendenciaAmbiental)}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-6 h-10 shadow-lg shadow-emerald-500/20"
               >
                 {isSubmitting ? 'Salvando...' : 'Finalizar Movimentação'}

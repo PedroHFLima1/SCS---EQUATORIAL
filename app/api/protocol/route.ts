@@ -19,7 +19,10 @@ export async function POST(request: Request) {
       tipo,
       rodovia,
       km,
-      taxa
+      taxa,
+      numeroProcesso,
+      dataAprovacao,
+      observacao
     } = body;
     
     // Copy necessary fields from the base process
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
     const newProtocol = await prisma.protocol.create({
       data: {
         processId: baseProcessId,
-        numero: protocolo,
+        numero: protocolo || "N/A", // Always ensure a number
         concessionaria: concessionaria,
         status: status,
         dataProtocolo: dataProtocolo ? new Date(dataProtocolo) : undefined,
@@ -43,7 +46,10 @@ export async function POST(request: Request) {
         tipo: tipo,
         rodovia: rodovia,
         km: km,
-        taxa: taxa
+        taxa: taxa,
+        numeroProcesso: numeroProcesso,
+        dataAprovacao: dataAprovacao ? new Date(dataAprovacao) : undefined,
+        observacao: observacao
       }
     });
 
