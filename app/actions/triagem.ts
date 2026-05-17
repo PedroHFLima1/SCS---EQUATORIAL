@@ -120,6 +120,12 @@ export async function aprovarTriagem(id: string, changes: any, user: string) {
         pendenciaAmbiental: changes.pendenciaAmbiental,
         statusInscricao: 'NÃO INICIADO',
         status: 'NOVO',
+        statusInscricaoAnuencia: 'NÃO INICIADO',
+        statusInscricaoTravessia: 'NÃO INICIADO',
+        statusInscricaoAmbiental: 'NÃO INICIADO',
+        statusAnuencia: 'NÃO INICIADO',
+        statusAmbiental: 'NÃO INICIADO',
+        statusTravessia: 'NÃO INICIADO',
         dataAprovacao: new Date(),
         aprovadoPor: user,
       }
@@ -130,6 +136,8 @@ export async function aprovarTriagem(id: string, changes: any, user: string) {
         processId: id,
         description: `Triagem aprovada.`,
         user: user,
+        tipo_fluxo: 'SISTEMA',
+        type: 'status'
       }
     });
 
@@ -158,6 +166,8 @@ export async function reprovarTriagem(id: string, reason: string, user: string) 
         processId: id,
         description: `Triagem reprovada. Motivo: ${reason}`,
         user: user,
+        tipo_fluxo: 'SISTEMA',
+        type: 'status'
       }
     });
 

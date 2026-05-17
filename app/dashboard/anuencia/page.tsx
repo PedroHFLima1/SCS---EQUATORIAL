@@ -69,6 +69,9 @@ export default function AnuenciaPage() {
   const fetchProcesses = async () => {
     try {
       const res = await fetch('/api/processes?module=anuencia');
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
       setProcesses(Array.isArray(data) ? data : []);
     } catch (error) {

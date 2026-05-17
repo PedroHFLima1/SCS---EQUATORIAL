@@ -30,7 +30,13 @@ export async function GET(request: Request) {
       where: whereQuery,
       include: {
         movements: {
-          where: tipoFluxo ? { tipo_fluxo: tipoFluxo } : undefined,
+          where: tipoFluxo ? { 
+            OR: [
+              { tipo_fluxo: tipoFluxo },
+              { tipo_fluxo: 'SISTEMA' },
+              { type: 'origin' }
+            ] 
+          } : undefined,
           orderBy: { date: 'desc' }
         }
       }

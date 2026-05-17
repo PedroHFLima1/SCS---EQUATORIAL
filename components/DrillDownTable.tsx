@@ -131,7 +131,10 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         map.set(key, {
           inscricao: key,
           parceira: p.parceiraProjeto || p.partner,
-          status: moduleName === 'anuencia' ? p.statusInscricaoAnuencia : moduleName === 'travessia' ? p.statusInscricaoTravessia : moduleName === 'ambiental' ? p.statusInscricaoAmbiental : p.statusInscricao || 'NÃO INICIADO',
+          status: moduleName === 'anuencia' ? (p.statusInscricaoAnuencia || 'NÃO INICIADO') 
+                : moduleName === 'travessia' ? (p.statusInscricaoTravessia || 'NÃO INICIADO') 
+                : moduleName === 'ambiental' ? (p.statusInscricaoAmbiental || 'NÃO INICIADO') 
+                : (p.statusInscricao || 'NÃO INICIADO'),
           municipio: p.municipio || '-',
           regional: p.regional || '-',
           superintendencia: p.superintendencia || '-',
@@ -189,10 +192,10 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
           m.description.includes('[ANUENCIA]') && m.description.includes('APROVADO')
         );
         
-        const projetoStatus = moduleName === 'anuencia' ? (p.statusAnuencia || p.status)
-                            : moduleName === 'ambiental' ? (p.statusAmbiental || p.status)
-                            : moduleName === 'travessia' ? (p.statusTravessia || p.status)
-                            : p.status;
+        const projetoStatus = moduleName === 'anuencia' ? (p.statusAnuencia || 'NÃO INICIADO')
+                            : moduleName === 'ambiental' ? (p.statusAmbiental || 'NÃO INICIADO')
+                            : moduleName === 'travessia' ? (p.statusTravessia || 'NÃO INICIADO')
+                            : (p.status || 'NÃO INICIADO');
 
         map.set(p.projeto, {
           projeto: p.projeto,
@@ -220,7 +223,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     
     // Get DB protocols
     const processFound = processes.find(p => (p.idSolicitacao || p.inscricao) === selectedInscricao && p.projeto === selectedProjeto);
-    const dbProtocols = (processFound?.protocols || []).map((p: any) => ({
+    const dbProtocols = (processFound?.protocols || [])
+      .filter((p: any) => p.tipo_fluxo === moduleName?.toUpperCase())
+      .map((p: any) => ({
       id: p.id,
       protocolo: p.numero || '-',
       concessionaria: p.concessionaria || '-',
@@ -233,15 +238,15 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       rodovia: p.rodovia || '-',
       km: p.km || '-',
       taxa: p.taxa || '-',
-      numeroProcesso: processFound.numeroProcesso || p.numeroProcesso || '-',
-      dataAprovacao: processFound.dataAprovacao || p.dataAprovacao ? format(new Date(processFound.dataAprovacao || p.dataAprovacao), 'dd/MM/yyyy') : '-',
+      numeroProcesso: p.numeroProcesso || '-',
+      dataAprovacao: p.dataAprovacao ? format(new Date(p.dataAprovacao), 'dd/MM/yyyy') : '-',
       isManual: false,
       process: processFound,
       protocolObj: p
     }));
       
     // Get manual protocols for this specific projeto
-    const manualForProjeto = manualProtocolos.filter(m => m.inscricao === selectedInscricao && m.projeto === selectedProjeto);
+    const manualForProjeto = manualProtocolos.filter(m => m.inscricao === selectedInscricao && m.projeto === selectedProjeto && m.tipo_fluxo === moduleName?.toUpperCase());
     
     return [...dbProtocols, ...manualForProjeto];
   }, [processes, selectedInscricao, selectedProjeto, moduleName, manualProtocolos]);
@@ -274,7 +279,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
       tipo: '',
       rodovia: '',
       km: '',
-      taxa: 'NÃO'
+      taxa: 'NÃO',
+      numeroProcesso: '',
+      dataAprovacao: ''
     });
     setIsProtocolModalOpen(true);
   };
@@ -311,6 +318,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         inscricao: selectedInscricao,
         projeto: selectedProjeto,
         ...protocolForm,
+        tipo_fluxo: moduleName?.toUpperCase(),
         isManual: true
       };
       setManualProtocolos([...manualProtocolos, newProtocol]);
@@ -908,149 +916,230 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
               
               <div className="p-6 overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">N° Protocolo</label>
-                    <input
-                      type="text"
-                      required
-                      value={protocolForm.protocolo || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value.toUpperCase()})}
-                      style={{ textTransform: 'uppercase' }}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Concessionária</label>
-                    <select
-                      required
-                      value={protocolForm.concessionaria || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, concessionaria: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="">Selecione</option>
-                      {CONCESSIONARIAS.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Parceira</label>
-                    <input
-                      type="text"
-                      required
-                      disabled={role === 'PARCEIRA'}
-                      value={protocolForm.parceira || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value.toUpperCase()})}
-                      style={{ textTransform: 'uppercase' }}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Status Atual</label>
-                    <select
-                      required
-                      value={protocolForm.status || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    >
-                      <option>NOVO</option>
-                      <option>PROTOCOLADO</option>
-                      <option>CANCELADO</option>
-                      <option>APROVADO</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Protocolo</label>
-                    <input
-                      type="date"
-                      required
-                      value={protocolForm.dataProtocolo || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Valor</label>
-                    <input
-                      type="text"
-                      required
-                      value={protocolForm.valor || ''}
-                      onChange={(e) => {
-                        let val = e.target.value.replace(/\D/g, "");
-                        if (!val) {
-                          setProtocolForm({...protocolForm, valor: ''});
-                          return;
-                        }
-                        const numberVal = parseInt(val, 10) / 100;
-                        const formatted = new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(numberVal);
-                        setProtocolForm({...protocolForm, valor: formatted});
-                      }}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Vencimento Boleto</label>
-                    <input
-                      type="date"
-                      required
-                      value={protocolForm.dataVencimento || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, dataVencimento: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
-                    <select
-                      required
-                      value={protocolForm.tipo || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, tipo: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="">Selecione</option>
-                      <option value="RODOVIA/TRANSVERSAL">RODOVIA/TRANSVERSAL</option>
-                      <option value="RODOVIA/LONGITUDINAL">RODOVIA/LONGITUDINAL</option>
-                      <option value="LINHA DE TRANSMISSAO">LINHA DE TRANSMISSAO</option>
-                      <option value="FERROVIA/TRANSVERSAL">FERROVIA/TRANSVERSAL</option>
-                      <option value="FERROVIA/LONGITUDINAL">FERROVIA/LONGITUDINAL</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Rodovia</label>
-                    <input
-                      type="text"
-                      required
-                      value={protocolForm.rodovia || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value.toUpperCase()})}
-                      style={{ textTransform: 'uppercase' }}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">KM</label>
-                    <input
-                      type="text"
-                      required
-                      value={protocolForm.km || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value.toUpperCase()})}
-                      style={{ textTransform: 'uppercase' }}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Taxa?</label>
-                    <select
-                      required
-                      value={protocolForm.taxa || 'NÃO'}
-                      onChange={(e) => setProtocolForm({...protocolForm, taxa: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="SIM">SIM</option>
-                      <option value="NÃO">NÃO</option>
-                    </select>
-                  </div>
+                  {moduleName === 'travessia' ? (
+                    <>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">N° Protocolo</label>
+                        <input
+                          type="text"
+                          required
+                          value={protocolForm.protocolo || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value.toUpperCase()})}
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Concessionária</label>
+                        <select
+                          required
+                          value={protocolForm.concessionaria || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, concessionaria: e.target.value})}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="">Selecione</option>
+                          {CONCESSIONARIAS.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Parceira</label>
+                        <input
+                          type="text"
+                          required
+                          disabled={role === 'PARCEIRA'}
+                          value={protocolForm.parceira || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value.toUpperCase()})}
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Status Atual</label>
+                        <select
+                          required
+                          value={protocolForm.status || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        >
+                          <option>NOVO</option>
+                          <option>PROTOCOLADO</option>
+                          <option>CANCELADO</option>
+                          <option>APROVADO</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Data Protocolo</label>
+                        <input
+                          type="date"
+                          required
+                          value={protocolForm.dataProtocolo || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Valor</label>
+                        <input
+                          type="text"
+                          required
+                          value={protocolForm.valor || ''}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/\D/g, "");
+                            if (!val) {
+                              setProtocolForm({...protocolForm, valor: ''});
+                              return;
+                            }
+                            const numberVal = parseInt(val, 10) / 100;
+                            const formatted = new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(numberVal);
+                            setProtocolForm({...protocolForm, valor: formatted});
+                          }}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Data Vencimento Boleto</label>
+                        <input
+                          type="date"
+                          required
+                          value={protocolForm.dataVencimento || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, dataVencimento: e.target.value})}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Tipo</label>
+                        <select
+                          required
+                          value={protocolForm.tipo || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, tipo: e.target.value})}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="RODOVIA/TRANSVERSAL">RODOVIA/TRANSVERSAL</option>
+                          <option value="RODOVIA/LONGITUDINAL">RODOVIA/LONGITUDINAL</option>
+                          <option value="LINHA DE TRANSMISSAO">LINHA DE TRANSMISSAO</option>
+                          <option value="FERROVIA/TRANSVERSAL">FERROVIA/TRANSVERSAL</option>
+                          <option value="FERROVIA/LONGITUDINAL">FERROVIA/LONGITUDINAL</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Rodovia</label>
+                        <input
+                          type="text"
+                          required
+                          value={protocolForm.rodovia || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value.toUpperCase()})}
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">KM</label>
+                        <input
+                          type="text"
+                          required
+                          value={protocolForm.km || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value.toUpperCase()})}
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300 uppercase italic">Taxa?</label>
+                        <select
+                          required
+                          value={protocolForm.taxa || 'NÃO'}
+                          onChange={(e) => setProtocolForm({...protocolForm, taxa: e.target.value})}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="SIM">SIM</option>
+                          <option value="NÃO">NÃO</option>
+                        </select>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase italic">Status Atual</label>
+                        <select
+                          required
+                          value={protocolForm.status || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        >
+                          <option>NOVO</option>
+                          <option>PROCESSO SEMAD</option>
+                          <option>PROTOCOLADO</option>
+                          <option>CANCELADO</option>
+                          <option>APROVADO</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase italic">N° Processo</label>
+                        <input
+                          type="text"
+                          value={protocolForm.numeroProcesso || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, numeroProcesso: e.target.value.toUpperCase()})}
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase italic">Valor Taxa</label>
+                        <input
+                          type="text"
+                          value={protocolForm.valor || ''}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/\D/g, "");
+                            if (!val) {
+                              setProtocolForm({...protocolForm, valor: ''});
+                              return;
+                            }
+                            const numberVal = parseInt(val, 10) / 100;
+                            const formatted = new Intl.NumberFormat("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            }).format(numberVal);
+                            setProtocolForm({...protocolForm, valor: formatted});
+                          }}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase italic">N° Protocolo</label>
+                        <input
+                          type="text"
+                          value={protocolForm.protocolo || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value.toUpperCase()})}
+                          style={{ textTransform: 'uppercase' }}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase italic">Data Protocolo</label>
+                        <input
+                          type="date"
+                          value={protocolForm.dataProtocolo || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase italic">Data Aprovação</label>
+                        <input
+                          type="date"
+                          value={protocolForm.dataAprovacao || ''}
+                          onChange={(e) => setProtocolForm({...protocolForm, dataAprovacao: e.target.value})}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

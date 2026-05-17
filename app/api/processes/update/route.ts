@@ -39,6 +39,8 @@ export async function POST(request: Request) {
         processId: id,
         description: `Edição Administrativa: Status alterado para ${status}`,
         user: user || 'Admin',
+        module: module || 'admin',
+        tipo_fluxo: (module || 'SISTEMA').toUpperCase() as any
       }
     });
 

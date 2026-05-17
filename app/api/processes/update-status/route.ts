@@ -18,6 +18,9 @@ export async function POST(request: Request) {
       user, 
       justification, 
       protocol, 
+      numeroProcesso,
+      dataAprovacao,
+      dataProtocolo,
       valor, 
       dataVencimento, 
       tipo, 
@@ -40,15 +43,22 @@ export async function POST(request: Request) {
            await prisma.movement.create({
               data: {
                  processId: updatedProtocol.processId,
-                 description: `[TRAVESSIA] Status do Protocolo ${updatedProtocol.numero} alterado para ${status}`,
+                 description: `[${(updatedProtocol.tipo_fluxo || 'TRAVESSIA').toUpperCase()}] Status do Protocolo ${updatedProtocol.numero} alterado para ${status}`,
                  user: user || 'Sistema',
-                 module: 'travessia',
+                 module: (updatedProtocol.tipo_fluxo || 'travessia').toLowerCase(),
+                 tipo_fluxo: updatedProtocol.tipo_fluxo || 'TRAVESSIA',
                  type: 'status'
               }
            });
            
            // Apply cascade rules Protocol -> Projeto
-           const allProtocols = await prisma.protocol.findMany({ where: { processId: updatedProtocol.processId }});
+           const flow = updatedProtocol.tipo_fluxo || 'TRAVESSIA';
+           const allProtocols = await prisma.protocol.findMany({ 
+              where: { 
+                 processId: updatedProtocol.processId,
+                 tipo_fluxo: flow
+              } 
+           });
            
            let newProjetoStatus = null;
            // QUANDO MUDAR O PROTOCOLO PARA APROVADO, O PROJETO AUTOMATICAMENTE IRÁ PARA APROVADO
@@ -69,7 +79,7 @@ export async function POST(request: Request) {
            
            if (newProjetoStatus) {
                // Update Project which will then cascade to Inscricao
-               await cascadeProjectUpdate(updatedProtocol.processId, newProjetoStatus, user, 'travessia');
+               await cascadeProjectUpdate(updatedProtocol.processId, newProjetoStatus, user, flow.toLowerCase());
            } else {
                const p = await prisma.process.findUnique({ where: { id: updatedProtocol.processId }});
                if (p) {
@@ -96,14 +106,21 @@ export async function POST(request: Request) {
        for (const p of processesToUpdate) {
          await prisma.process.update({
             where: { id: p.id },
-            data: { statusInscricao: status, statusUpdatedAt: new Date() }
+            data: { 
+              statusInscricao: status, 
+              statusUpdatedAt: new Date(),
+              ...(module === 'anuencia' ? { statusInscricaoAnuencia: status } : {}),
+              ...(module === 'travessia' ? { statusInscricaoTravessia: status } : {}),
+              ...(module === 'ambiental' ? { statusInscricaoAmbiental: status } : {}),
+            }
          });
          await prisma.movement.create({
             data: {
                processId: p.id,
-               description: `Status da Inscrição alterado para ${status}`,
+               description: `[${(module || 'triagem').toUpperCase()}] Status da Inscrição alterado para ${status}`,
                user: user || 'Sistema',
                module: module || 'triagem',
+               tipo_fluxo: module?.toUpperCase() || 'SISTEMA',
                type: 'status'
             }
          });
@@ -127,7 +144,7 @@ export async function POST(request: Request) {
     const updatedProcesses = [];
     for (const process of processesToUpdate) {
        const u = await cascadeProjectUpdate(process.id, status, user, module || 'triagem', {
-         protocol, valor, dataVencimento, tipo, rodovia, km, taxa, justification, flags, isReturnToAnuencia: body.returnToAnuencia, rejectForwarding: body.rejectForwarding
+         protocol, numeroProcesso, dataAprovacao, dataProtocolo, valor, dataVencimento, tipo, rodovia, km, taxa, justification, flags, isReturnToAnuencia: body.returnToAnuencia, rejectForwarding: body.rejectForwarding
        });
        if(u) updatedProcesses.push(u);
     }
@@ -248,7 +265,7 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         }
     } else if (module === 'ambiental') {
         const statuses = updatedSiblings.map(s => s.statusAmbiental || s.status);
-        const triggersEmAndamento = ['EM ESTUDO', 'TAXA', 'PROTOCOLADO'];
+        const triggersEmAndamento = ['EM ESTUDO', 'PROCESSO SEMAD', 'PROTOCOLADO'];
         if (statuses.some(s => triggersEmAndamento.includes(s!))) {
             newInscricaoStatus = 'EM ANDAMENTO';
         }
@@ -273,14 +290,20 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     });
 
     if (module === 'ambiental') {
-      const existingProtocol = await prisma.protocol.findFirst({ where: { processId: process.id } });
+      const existingProtocol = await prisma.protocol.findFirst({ 
+        where: { 
+          processId: process.id,
+          tipo_fluxo: 'AMBIENTAL'
+        } 
+      });
       const protocolData = {
         numeroProcesso: extraData.numeroProcesso !== undefined ? extraData.numeroProcesso : existingProtocol?.numeroProcesso,
         numero: extraData.protocol || existingProtocol?.numero || "N/A",
         valor: extraData.valor !== undefined ? extraData.valor : existingProtocol?.valor,
         dataProtocolo: extraData.dataProtocolo ? new Date(extraData.dataProtocolo) : existingProtocol?.dataProtocolo,
         dataAprovacao: extraData.dataAprovacao ? new Date(extraData.dataAprovacao) : existingProtocol?.dataAprovacao,
-        status: newStatus
+        status: newStatus,
+        tipo_fluxo: 'AMBIENTAL'
       };
 
       if (existingProtocol) {
@@ -305,6 +328,7 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         description: `${moduleTag}Status alterado para ${newStatus}${extraData.justification ? ` - Justificativa: ${extraData.justification}` : ''}`,
         user: user || 'Sistema',
         module: module,
+        tipo_fluxo: module?.toUpperCase() || 'SISTEMA',
         type: 'status'
       }
     });
@@ -324,9 +348,10 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         await prisma.movement.create({
            data: {
              processId: process.id,
-             description: `Status da Inscrição atualizado automaticamente para ${newInscricaoStatus} devido ao status do projeto.`,
+             description: `[${(module || 'sistema').toUpperCase()}] Status da Inscrição atualizado automaticamente para ${newInscricaoStatus} devido ao status do projeto.`,
              user: 'Sistema',
              module: module,
+             tipo_fluxo: module?.toUpperCase() || 'SISTEMA',
              type: 'status'
            }
         });

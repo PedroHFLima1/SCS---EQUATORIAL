@@ -57,4 +57,7 @@ app.prepare().then(() => {
   httpServer.listen(PORT, () => {
     console.log(`> Server listening on port ${PORT}`);
   });
+}).catch((err) => {
+  console.error('FAILED TO PREPARE NEXT APP:', err);
+  process.exit(1);
 });

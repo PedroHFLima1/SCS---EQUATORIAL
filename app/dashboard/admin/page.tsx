@@ -136,6 +136,9 @@ export default function AdminPage() {
   const fetchProcesses = async () => {
     try {
       const res = await fetch('/api/processes');
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
       setProcesses(Array.isArray(data) ? data : []);
     } catch (error) {

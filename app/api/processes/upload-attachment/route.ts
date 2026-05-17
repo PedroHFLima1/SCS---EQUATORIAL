@@ -87,6 +87,8 @@ export async function POST(req: Request) {
         processId: processFromDb.id,
         description: `Anexo adicionado: ${file.name} - Enviado p/ SharePoint do módulo ${moduleName}`,
         user: 'Sistema', // or getting it from the session
+        module: moduleName.toLowerCase(),
+        tipo_fluxo: moduleName.toUpperCase() as any
       }
     });
 

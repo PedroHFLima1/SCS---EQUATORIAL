@@ -69,6 +69,9 @@ export default function AmbientalPage() {
   const fetchProcesses = async () => {
     try {
       const res = await fetch('/api/processes?module=ambiental');
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
       setProcesses(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -284,7 +287,7 @@ export default function AmbientalPage() {
                   <option>Todas as Fases</option>
                   <option>CANCELADO</option>
                   <option>NÃO INICIADO</option>
-                  <option>TAXA</option>
+                  <option>PROCESSO SEMAD</option>
                   <option>PROTOCOLADO</option>
                   <option>APROVADO</option>
                   <option>EM CORREÇÃO</option>

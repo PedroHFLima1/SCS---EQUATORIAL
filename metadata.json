@@ -1,5 +1,6 @@
 {
   "name": "SCS (Equatorial) V2",
   "description": "Sistema de Controle de Projetos",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

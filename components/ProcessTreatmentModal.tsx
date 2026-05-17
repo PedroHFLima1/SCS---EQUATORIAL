@@ -120,8 +120,8 @@ export function ProcessTreatmentModal({
   const handleSave = async () => {
     try {
       if (module === 'ambiental' || module === 'travessia') {
-          if (module === 'ambiental' && newStatus === 'TAXA' && (!numeroProcesso || !valor)) {
-              alert('N° PROCESSO e VALOR DA TAXA são obrigatórios para transição para TAXA.');
+          if (module === 'ambiental' && newStatus === 'PROCESSO SEMAD' && (!numeroProcesso || !valor)) {
+              alert('N° PROCESSO e VALOR DA TAXA são obrigatórios para transição para PROCESSO SEMAD.');
               return;
           }
           if (!process.isLayer3 && newStatus.includes('PROTOCOLADO')) {
@@ -195,9 +195,9 @@ export function ProcessTreatmentModal({
       case 'anuencia':
         return ['ATENDIDO', 'NEGADO', 'DUP'];
       case 'travessia':
-        return ['NOVO', 'PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA', 'APROVADO'];
+        return ['NOVO', 'PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA', 'LIBERADO PARA EXECUÇÃO', 'APROVADO'];
       case 'ambiental':
-        return ['EM ESTUDO', 'NÃO INICIADO', 'TAXA', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
+        return ['EM ESTUDO', 'NÃO INICIADO', 'PROCESSO SEMAD', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
       default:
         return [];
     }
@@ -291,7 +291,7 @@ export function ProcessTreatmentModal({
                 </div>
               )}
 
-              {(module === 'ambiental' || module === 'travessia') && (['TAXA', 'APROVADO', 'PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO'].includes(newStatus)) && (
+              {(module === 'ambiental' || module === 'travessia') && (['TAXA', 'PROCESSO SEMAD', 'APROVADO', 'PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO'].includes(newStatus)) && (
                 <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="col-span-2">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -321,10 +321,10 @@ export function ProcessTreatmentModal({
                         </div>
                       </>
                   )}
-                  {module === 'ambiental' && ['TAXA', 'APROVADO'].includes(newStatus) && (
+                  {module === 'ambiental' && ['PROCESSO SEMAD', 'APROVADO'].includes(newStatus) && (
                       <>
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'TAXA' && '*'}</label>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {(newStatus === 'TAXA' || newStatus === 'PROCESSO SEMAD') && '*'}</label>
                           <input
                             type="text"
                             value={numeroProcesso}
@@ -333,7 +333,7 @@ export function ProcessTreatmentModal({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor Taxa {newStatus === 'TAXA' && '*'}</label>
+                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor Taxa {(newStatus === 'TAXA' || newStatus === 'PROCESSO SEMAD') && '*'}</label>
                           <input
                             type="text"
                             value={valor}

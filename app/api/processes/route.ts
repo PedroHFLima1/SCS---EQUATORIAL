@@ -5,8 +5,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const url = new URL(request.url, `http://${request.headers.get('host') || 'localhost'}`);
+    const { searchParams } = url;
     const moduleParam = searchParams.get('module');
+    console.log(`[API] Fetching processes for module: ${moduleParam}`);
     
     let whereClause: any = {};
     
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
       };
     }
     
-    const tipoFluxoFilter = moduleParam === 'ambiental' ? 'AMBIENTAL' : moduleParam === 'travessia' ? 'TRAVESSIA' : undefined;
+    const tipoFluxoFilter = moduleParam === 'ambiental' ? 'AMBIENTAL' : moduleParam === 'travessia' ? 'TRAVESSIA' : moduleParam === 'anuencia' ? 'ANUENCIA' : undefined;
     
     const processes = await prisma.process.findMany({
       where: whereClause,
@@ -59,7 +61,11 @@ export async function GET(request: Request) {
     const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
     const processesWithSla = processes.map((process: any) => {
       let slaStr = process.sla || "0d";
-      const currentStatus = process.status || process.statusInscricao;
+      const currentStatus = moduleParam === 'anuencia' ? (process.statusAnuencia || process.statusInscricaoAnuencia)
+                          : moduleParam === 'travessia' ? (process.statusTravessia || process.statusInscricaoTravessia)
+                          : moduleParam === 'ambiental' ? (process.statusAmbiental || process.statusInscricaoAmbiental)
+                          : (process.status || process.statusInscricao);
+      
       if (!terminalStatuses.includes(currentStatus) && process.statusUpdatedAt) {
         const diffMs = new Date().getTime() - new Date(process.statusUpdatedAt).getTime();
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));

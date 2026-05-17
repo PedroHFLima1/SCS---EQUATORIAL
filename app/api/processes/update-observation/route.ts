@@ -34,12 +34,14 @@ export async function POST(request: Request) {
         where: { OR: [ { idSolicitacao: inscricao }, { inscricao: inscricao } ] }
       });
       if (firstProcess && observacaoInscricao.trim()) {
+        const flow = tipo_fluxo || 'SISTEMA';
         await prisma.movement.create({
           data: {
             processId: firstProcess.id,
             description: `[OBSERVAÇÃO INSCRIÇÃO] ${observacaoInscricao}`,
             user: body.user || 'Sistema',
-            tipo_fluxo: tipo_fluxo || 'TRAVESSIA'
+            module: flow.toLowerCase(),
+            tipo_fluxo: flow
           }
         });
       }
@@ -67,12 +69,14 @@ export async function POST(request: Request) {
         }
       });
       if (projProcess && observacaoProjeto.trim()) {
+        const flow = tipo_fluxo || 'SISTEMA';
         await prisma.movement.create({
           data: {
             processId: projProcess.id,
             description: `[OBSERVAÇÃO PROJETO] ${observacaoProjeto}`,
             user: body.user || 'Sistema',
-            tipo_fluxo: tipo_fluxo || 'TRAVESSIA'
+            module: flow.toLowerCase(),
+            tipo_fluxo: flow
           }
         });
       }
