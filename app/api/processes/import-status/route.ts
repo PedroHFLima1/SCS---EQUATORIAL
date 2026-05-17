@@ -12,37 +12,62 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid data format' }, { status: 400 });
     }
 
-    let updatedCount = 0;
-
-    for (const rawItem of processes) {
-      // Normalize columns
+    const normalizedProcesses = processes.map(rawItem => {
       const item: any = {};
       for (const key in rawItem) {
         item[key.toUpperCase()] = rawItem[key];
       }
-      
-      const idSolicitacao = item.ID_SOLICITACAO || item.INSCRICAO;
-      const projeto = item.PROJETO || item.COD_PROJETO_SGT_OBRAS;
-      const newStatus = item.STATUS_PROJETO || item.STATUS;
+      return {
+        idSolicitacao: String(item.ID_SOLICITACAO || item.INSCRICAO),
+        projeto: String(item.PROJETO || item.COD_PROJETO_SGT_OBRAS),
+        newStatus: String(item.STATUS_PROJETO || item.STATUS)
+      };
+    }).filter(p => !!p.idSolicitacao && p.idSolicitacao !== 'undefined' && !!p.projeto && p.projeto !== 'undefined' && !!p.newStatus && p.newStatus !== 'undefined');
 
-      if (!idSolicitacao || !projeto || !newStatus) continue;
+    if (normalizedProcesses.length === 0) {
+      return NextResponse.json({ success: true, count: 0 });
+    }
 
-      try {
-        const process = await prisma.process.findFirst({
-          where: {
-            idSolicitacao: String(idSolicitacao),
-            projeto: String(projeto)
-          }
-        });
+    // Get all matching processes in one go, using an OR block
+    const conditions = normalizedProcesses.map(p => ({
+      idSolicitacao: p.idSolicitacao,
+      projeto: p.projeto
+    }));
 
-        if (process) {
-          // EXCLUSIVAMENTE status
-          await prisma.process.update({
+    const existingProcesses = await prisma.process.findMany({
+      where: {
+        OR: conditions
+      },
+      select: {
+        id: true,
+        idSolicitacao: true,
+        projeto: true
+      }
+    });
+
+    if (existingProcesses.length === 0) {
+      return NextResponse.json({ success: true, count: 0 });
+    }
+
+    const updates: any[] = [];
+    const movements: any[] = [];
+
+    existingProcesses.forEach(process => {
+      // Find the corresponding update for this process
+      const updateData = normalizedProcesses.find(
+        p => p.idSolicitacao === process.idSolicitacao && p.projeto === process.projeto
+      );
+
+      if (updateData) {
+        updates.push(
+          prisma.process.update({
             where: { id: process.id },
-            data: { status: String(newStatus), statusProjeto: String(newStatus) }
-          });
+            data: { status: updateData.newStatus, statusProjeto: updateData.newStatus }
+          })
+        );
 
-          await prisma.movement.create({
+        movements.push(
+          prisma.movement.create({
             data: {
               processId: process.id,
               description: 'Alteração de status de projeto via Importação Massiva',
@@ -51,16 +76,15 @@ export async function POST(request: Request) {
               type: 'status',
               tipo_fluxo: 'TRAVESSIA' // default
             }
-          });
-          
-          updatedCount++;
-        }
-      } catch (err) {
-        console.error('Error updating row:', err);
+          })
+        );
       }
-    }
-    
-    return NextResponse.json({ success: true, count: updatedCount });
+    });
+
+    // Execute all updates and movements in a single transaction
+    await prisma.$transaction([...updates, ...movements]);
+
+    return NextResponse.json({ success: true, count: updates.length });
   } catch (error) {
     console.error('Import error:', error);
     return NextResponse.json({ error: 'Failed' }, { status: 500 });

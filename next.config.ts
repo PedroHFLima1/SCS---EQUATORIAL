@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
         hostname: 'i.pravatar.cc',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'assets.iflscience.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },

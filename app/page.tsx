@@ -238,7 +238,7 @@ export default function LoginPage() {
       {/* Left Side - Image */}
       <div className="relative hidden w-1/2 lg:block">
         <Image
-          src="https://picsum.photos/seed/energy/1920/1080"
+          src="https://assets.iflscience.com/assets/articleNo/78994/aImg/83574/electricity-grid-l.webp"
           alt="Torre de Transmissão de Energia"
           fill
           className="object-cover"

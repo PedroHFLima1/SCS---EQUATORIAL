@@ -152,9 +152,6 @@ export default function AdminPage() {
     }
   };
 
-  const [snowflakeJobId, setSnowflakeJobId] = useState<string | null>(null);
-  const [snowflakeStatus, setSnowflakeStatus] = useState<string | null>(null);
-
   const handleImport = () => {
     if (!selectedFile) return;
 
@@ -167,7 +164,7 @@ export default function AdminPage() {
       complete: async (results) => {
         try {
           const data = results.data as any[];
-          const BATCH_SIZE = 100;
+          const BATCH_SIZE = 1000;
           let totalImported = 0;
 
           for (let i = 0; i < data.length; i += BATCH_SIZE) {
@@ -206,36 +203,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleSnowflakeInjection = async () => {
-    const newJobId = `job-${Date.now()}`;
-    setSnowflakeJobId(newJobId);
-    setSnowflakeStatus('Iniciando...');
 
-    try {
-      await fetch('/api/snowflake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: newJobId })
-      });
-      
-      // Start polling
-      const pollInterval = setInterval(async () => {
-        const res = await fetch(`/api/snowflake/status?jobId=${newJobId}`);
-        const data = await res.json();
-        if (data.status) {
-          setSnowflakeStatus(data.status);
-          if (data.status.includes('SUCESSO') || data.status.includes('ERRO')) {
-            clearInterval(pollInterval);
-            if (data.status.includes('SUCESSO')) fetchProcesses();
-          }
-        }
-      }, 2000); // Poll a cada 2 segundos
-
-    } catch (error) {
-      console.error(error);
-      setSnowflakeStatus('Erro ao iniciar job Snowflake.');
-    }
-  };
 
   // Audit Actions
   const filteredAudit = useMemo(() => {
@@ -939,40 +907,7 @@ export default function AdminPage() {
             )}
           </div>
 
-          <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800 space-y-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-6">INTEGRAÇÃO SNOWFLAKE (UPSERT)</h2>
-            <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-lg border border-gray-100 dark:border-gray-700">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">Busca Massiva de Processos</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Conecta via ExternalBrowser no host nativo, extrai registros da Datalake e injeta dados não existentes (INSERT IGNORE baseado em idSolicitacao + projeto). 
-                    Roda em background (Non-Blocking).
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 flex items-center space-x-4 border-t border-gray-200 dark:border-gray-700 pt-5">
-                <button
-                  onClick={handleSnowflakeInjection}
-                  disabled={snowflakeStatus !== null && !snowflakeStatus.includes('SUCESSO') && !snowflakeStatus.includes('Erro')}
-                  className="rounded-md bg-[#00A8FF] px-4 py-2 text-sm font-medium text-white hover:bg-[#0089d1] disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  <Activity className="mr-2 h-4 w-4" />
-                  Injetar Dados Snowflake
-                </button>
-                {snowflakeStatus && (
-                  <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                    <span className="flex items-center">
-                      {snowflakeStatus.includes('Conectado') || snowflakeStatus.includes('Processando') || snowflakeStatus.includes('Aguardando') ? (
-                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                      ) : null}
-                      Status: {snowflakeStatus}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+
         </div>
       )}
 

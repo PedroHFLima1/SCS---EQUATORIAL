@@ -270,6 +270,8 @@ export default function TravessiaPage() {
                   <option>NÃO INICIADO</option>
                   <option>EM ANDAMENTO</option>
                   <option>PROTOCOLADO</option>
+                  <option>LIBERADO EXECUÇÃO</option>
+                  <option>EM CORREÇÃO</option>
                   <option>APROVADO</option>
                   <option>CANCELADO</option>
                 </select>
@@ -292,6 +294,7 @@ export default function TravessiaPage() {
                   <option>TRIAGEM</option>
                   <option>PREVISÃO DE BOLETO</option>
                   <option>AGUARDANDO PAGAMENTO</option>
+                  <option>LIBERADO EXECUÇÃO</option>
                   <option>EM TRATATIVA</option>
                   <option>CORREÇÃO</option>
                   <option>EM ELABORAÇÃO</option>
