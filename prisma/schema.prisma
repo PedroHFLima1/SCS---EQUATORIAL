@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -84,6 +85,7 @@ model Protocol {
   process         Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
   numero          String
   numeroProcesso  String?
+  tipo_fluxo      String   @default("TRAVESSIA")
   dataAprovacao   DateTime?
   observacao      String?
   status          String   @default("NOVO")
@@ -107,6 +109,7 @@ model Movement {
   date        DateTime @default(now())
   user        String
   module      String?  // The module where this movement happened
+  tipo_fluxo  String   @default("TRAVESSIA")
   type        String?  // type of movement: 'status', 'origin', 'rejection', etc.
 }
 

@@ -120,15 +120,15 @@ export function ProcessTreatmentModal({
   const handleSave = async () => {
     try {
       if (module === 'ambiental' || module === 'travessia') {
-          if (module === 'ambiental' && newStatus === 'REGISTRO SEMAD' && !numeroProcesso) {
-              alert('N° PROCESSO é obrigatório para transição para REGISTRO SEMAD.');
-              return;
-          }
-          if (module === 'travessia' && newStatus === 'TAXA' && (!numeroProcesso || !valor)) {
+          if (module === 'ambiental' && newStatus === 'TAXA' && (!numeroProcesso || !valor)) {
               alert('N° PROCESSO e VALOR DA TAXA são obrigatórios para transição para TAXA.');
               return;
           }
-          if (newStatus.includes('PROTOCOLADO') && (!protocol || !dataProtocolo)) {
+          if (!process.isLayer3 && newStatus.includes('PROTOCOLADO')) {
+              alert('Adicione o Protocolo Manualmente através da tabela antes de avançar para PROTOCOLADO.');
+              return;
+          }
+          if (process.isLayer3 && newStatus.includes('PROTOCOLADO') && (!protocol || !dataProtocolo)) {
               alert('Nº Protocolo e Data de Protocolo são obrigatórios.');
               return;
           }
@@ -195,9 +195,9 @@ export function ProcessTreatmentModal({
       case 'anuencia':
         return ['ATENDIDO', 'NEGADO', 'DUP'];
       case 'travessia':
-        return ['NOVO', 'PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'EM CORREÇÃO', 'TAXA', 'APROVADO'];
+        return ['NOVO', 'PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA', 'APROVADO'];
       case 'ambiental':
-        return ['EM ESTUDO', 'NÃO INICIADO', 'REGISTRO SEMAD', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
+        return ['EM ESTUDO', 'NÃO INICIADO', 'TAXA', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
       default:
         return [];
     }
@@ -291,7 +291,7 @@ export function ProcessTreatmentModal({
                 </div>
               )}
 
-              {(module === 'ambiental' || module === 'travessia') && (['TAXA', 'REGISTRO SEMAD', 'APROVADO', 'PROTOCOLADO', 'EM CORREÇÃO'].includes(newStatus)) && (
+              {(module === 'ambiental' || module === 'travessia') && (['TAXA', 'APROVADO', 'PROTOCOLADO', 'PROTOCOLADO - CORREÇÃO'].includes(newStatus)) && (
                 <div className="grid grid-cols-2 gap-4 border-t dark:border-slate-800 pt-4 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="col-span-2">
                     <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -299,7 +299,7 @@ export function ProcessTreatmentModal({
                       Dados Complementares
                     </h4>
                   </div>
-                  {newStatus.includes('PROTOCOLADO') && (
+                  {newStatus.includes('PROTOCOLADO') && process.isLayer3 && (
                       <>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Protocolo *</label>
@@ -321,30 +321,7 @@ export function ProcessTreatmentModal({
                         </div>
                       </>
                   )}
-                  {module === 'ambiental' && ['REGISTRO SEMAD', 'APROVADO'].includes(newStatus) && (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'REGISTRO SEMAD' && '*'}</label>
-                          <input
-                            type="text"
-                            value={numeroProcesso}
-                            onChange={(e) => setNumeroProcesso(e.target.value)}
-                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                        {/* Only show valor if previously used, prompt doesn't say remove but 'Exige preenchimento manual de [Nº Processo]' */}
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valor Taxa</label>
-                          <input
-                            type="text"
-                            value={valor}
-                            onChange={(e) => setValor(e.target.value)}
-                            className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                      </>
-                  )}
-                  {module === 'travessia' && ['TAXA', 'APROVADO'].includes(newStatus) && (
+                  {module === 'ambiental' && ['TAXA', 'APROVADO'].includes(newStatus) && (
                       <>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Nº Processo {newStatus === 'TAXA' && '*'}</label>

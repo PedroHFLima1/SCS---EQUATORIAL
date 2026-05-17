@@ -125,10 +125,7 @@ export default function AmbientalPage() {
       result = result.filter(p => p.concessionaria === concessionariaFilter);
     }
     if (role !== 'PARCEIRA' && parceiraFilter !== 'Todas') {
-      result = result.filter(p => {
-        const processPartner = p.partner || p.parceiraProjeto || '';
-        return processPartner.toLowerCase() === parceiraFilter.toLowerCase();
-      });
+      result = result.filter(p => (p.partner || p.parceiraProjeto) === parceiraFilter);
     }
 
     // Sorting
@@ -287,7 +284,7 @@ export default function AmbientalPage() {
                   <option>Todas as Fases</option>
                   <option>CANCELADO</option>
                   <option>NÃO INICIADO</option>
-                  <option>REGISTRO SEMAD</option>
+                  <option>TAXA</option>
                   <option>PROTOCOLADO</option>
                   <option>APROVADO</option>
                   <option>EM CORREÇÃO</option>

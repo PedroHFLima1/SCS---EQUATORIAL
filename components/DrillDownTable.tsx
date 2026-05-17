@@ -52,6 +52,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
         body: JSON.stringify({
           inscricao,
           user: userName || 'Sistema',
+          tipo_fluxo: moduleName?.toUpperCase(), // "AMBIENTAL" ou "TRAVESSIA"
           ...(projeto ? { projeto, observacaoProjeto: observacao } : { observacaoInscricao: observacao })
         })
       });
@@ -60,14 +61,17 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     }
   };
   const [protocolForm, setProtocolForm] = useState({
-    status: 'NOVO',
-    numeroProcesso: '',
-    valor: '',
-    taxa: 'NÃO',
     protocolo: '',
+    concessionaria: '',
+    parceira: role === 'PARCEIRA' ? (company || '') : '',
+    status: 'NOVO',
     dataProtocolo: '',
-    dataAprovacao: '',
-    observacao: ''
+    valor: '',
+    dataVencimento: '',
+    tipo: '',
+    rodovia: '',
+    km: '',
+    taxa: 'NÃO'
   });
 
   // History Modal State
@@ -292,6 +296,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
             projeto: selectedProjeto,
             baseProcessId,
             moduleName,
+            tipo_fluxo: moduleName?.toUpperCase(), // "AMBIENTAL" ou "TRAVESSIA"
             ...protocolForm
           })
         });
@@ -326,7 +331,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
     setIsHistoryModalOpen(true);
     setHistoryLoading(true);
     try {
-      const url = projeto ? `/api/history?inscricao=${encodeURIComponent(inscricao)}&projeto=${encodeURIComponent(projeto)}&module=${moduleName}` : `/api/history?inscricao=${encodeURIComponent(inscricao)}&module=${moduleName}`;
+      const url = projeto 
+        ? `/api/history?inscricao=${encodeURIComponent(inscricao)}&projeto=${encodeURIComponent(projeto)}&tipo_fluxo=${moduleName ? encodeURIComponent(moduleName.toUpperCase()) : ''}` 
+        : `/api/history?inscricao=${encodeURIComponent(inscricao)}&tipo_fluxo=${moduleName ? encodeURIComponent(moduleName.toUpperCase()) : ''}`;
       const res = await fetch(url);
       const data = await res.json();
       setHistoryData(data);
@@ -342,6 +349,8 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   const handleToggleTaxa = async (process: any) => {
     try {
       const currentTaxaState = process.taxaPaga;
+      const confirmMsg = currentTaxaState ? "Marcar taxa como NÃO PAGA?" : "Informar que a Taxa foi PAGA?";
+      if (!confirm(confirmMsg)) return;
 
       const res = await fetch('/api/processes/update-taxa', {
         method: 'POST',
@@ -354,6 +363,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
 
       if (res.ok) {
         showSuccess('Informação de taxa atualizada!');
+        // Ideally we would update the local state here or refresh.
+        // For simplicity, a page reload or state mutate could be done (since we don't have mutate function passed down easily for all modules, we rely on the parent or just a reload for now, or just emit a socket event if available, wait, we do have a socket event in the parent! The parent might fetch automatically).
+        // Let's just reload the page for a guaranteed fresh state.
         window.location.reload();
       }
     } catch (e) {
@@ -365,19 +377,18 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   const renderAcoes = (process: any) => {
     // Determine if it's layer 2 (projeto)
     const isProjeto = !process.isLayer1 && process.projeto;
-    const showTaxaButton = isProjeto && (moduleName === 'ambiental' || moduleName === 'travessia') && (role === 'GESTOR_TRAVESSIA' || role === 'GESTOR_AMBIENTAL' || role === 'ADMIN' || (role === 'PARCEIRA' && moduleName === 'travessia'));
+    const showTaxaButton = isProjeto && (moduleName === 'ambiental' || moduleName === 'travessia') && (role === 'GESTOR_TRAVESSIA' || role === 'GESTOR_AMBIENTAL' || role === 'ADMIN');
     
     return (
       <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
         {showTaxaButton && (
-          <div className="flex items-center" title="Taxa Quitada">
-            <input 
-              type="checkbox" 
-              checked={process.taxaPaga || false}
-              onChange={() => handleToggleTaxa(process)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-            />
-          </div>
+          <button 
+            onClick={() => handleToggleTaxa(process)} 
+            className={`p-1 ${process.taxaPaga ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'}`} 
+            title={process.taxaPaga ? "Taxa Paga (Clique para Desmarcar)" : "Informar se Taxa foi paga"}
+          >
+            <FileText className="h-4 w-4" />
+          </button>
         )}
         {openTreatment && (
           <button onClick={() => openTreatment(process)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Processo">
@@ -545,9 +556,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                               <div className="flex flex-col gap-1 items-start">
                                 {item.statusAnuencia.size > 0 ? Array.from(item.statusAnuencia).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                    Anuência: {st}
+                                    {st}
                                   </span>
-                                )) : <span className="text-gray-500 font-medium">Anuência: NÃO INICIADO</span>}
+                                )) : <span className="text-gray-500 font-medium">-</span>}
                               </div>
                             ) : (
                               <span className="text-gray-500 font-medium">-</span>
@@ -558,9 +569,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                               <div className="flex flex-col gap-1 items-start">
                                 {item.statusAmbiental.size > 0 ? Array.from(item.statusAmbiental).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                    Ambiental: {st}
+                                    {st}
                                   </span>
-                                )) : <span className="text-gray-500 font-medium">Ambiental: NÃO INICIADO</span>}
+                                )) : <span className="text-gray-500 font-medium">-</span>}
                               </div>
                             ) : (
                               <span className="text-gray-500 font-medium">-</span>
@@ -571,9 +582,9 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                               <div className="flex flex-col gap-1 items-start">
                                 {item.statusTravessia.size > 0 ? Array.from(item.statusTravessia).slice(0, 1).map((st: string) => (
                                   <span key={st} className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${STATUS_COLORS[st] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
-                                    Travessia: {st}
+                                    {st}
                                   </span>
-                                )) : <span className="text-gray-500 font-medium">Travessia: NÃO INICIADO</span>}
+                                )) : <span className="text-gray-500 font-medium">-</span>}
                               </div>
                             ) : (
                               <span className="text-gray-500 font-medium">-</span>
@@ -767,56 +778,100 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
               <table className="w-full text-left text-sm text-gray-600 dark:text-gray-400">
                 <thead className="bg-gray-50 dark:bg-gray-950/50 text-xs uppercase text-gray-500 dark:text-gray-400">
                   <tr>
+                    {moduleName === 'travessia' ? (
+                      <>
+                        <th className="px-6 py-3 font-medium">N° PROTOCOLO</th>
+                        <th className="px-6 py-3 font-medium">CONCESSIONÁRIA</th>
+                        <th className="px-6 py-3 font-medium">PARCEIRA</th>
+                        <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
+                        <th className="px-6 py-3 font-medium">DATA PROTOCOLO</th>
+                        <th className="px-6 py-3 font-medium">VALOR</th>
+                        <th className="px-6 py-3 font-medium">DATA VENCIMENTO BOLETO</th>
+                        <th className="px-6 py-3 font-medium">TIPO</th>
+                        <th className="px-6 py-3 font-medium">RODOVIA</th>
+                        <th className="px-6 py-3 font-medium">KM</th>
+                        <th className="px-6 py-3 font-medium">TAXA?</th>
+                        <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
+                      </>
+                    ) : (
                       <>
                         <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
                         <th className="px-6 py-3 font-medium">N° PROCESSO</th>
-                        <th className="px-6 py-3 font-medium">VALOR</th>
-                        <th className="px-6 py-3 font-medium">TAXA</th>
+                        <th className="px-6 py-3 font-medium">VALOR TAXA</th>
                         <th className="px-6 py-3 font-medium">N° PROTOCOLO</th>
                         <th className="px-6 py-3 font-medium">DATA PROTOCOLO</th>
                         <th className="px-6 py-3 font-medium">DATA APROVAÇÃO</th>
-                        <th className="px-6 py-3 font-medium">OBS</th>
-                        <th className="px-6 py-3 font-medium text-center">AÇÕES</th>
+                        <th className="px-6 py-3 font-medium">OBS (AÇÕES)</th>
                       </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {paginatedProtocolos.map((item, idx) => (
+                    <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 ${item.isManual ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                      {moduleName === 'travessia' ? (
+                        <>
+                          <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">
+                            {item.protocolo}
+                            {item.isManual && <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Manual</span>}
+                          </td>
+                          <td className="px-6 py-4">{item.concessionaria}</td>
+                          <td className="px-6 py-4">{item.parceira}</td>
+                          <td className="px-6 py-4">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">{item.dataProtocolo}</td>
+                          <td className="px-6 py-4">{item.valor}</td>
+                          <td className="px-6 py-4">{item.dataVencimento}</td>
+                          <td className="px-6 py-4">{item.tipo}</td>
+                          <td className="px-6 py-4">{item.rodovia}</td>
+                          <td className="px-6 py-4">{item.km}</td>
+                          <td className="px-6 py-4">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${item.taxa === 'SIM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
+                              {item.taxa}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
+                              {openTreatment && (
+                                <button onClick={() => openTreatment({ ...item.process, isLayer3: true, protocolId: item.id, status: item.status, protocol: item.protocolo })} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Protocolo">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-4">
+                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">{item.numeroProcesso}</td>
+                          <td className="px-6 py-4">{item.valor}</td>
+                          <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">
+                            {item.protocolo}
+                          </td>
+                          <td className="px-6 py-4">{item.dataProtocolo}</td>
+                          <td className="px-6 py-4">{item.dataAprovacao}</td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
+                              {openTreatment && (
+                                <button onClick={() => openTreatment({ ...item.process, isLayer3: true, protocolId: item.id, status: item.status, protocol: item.protocolo })} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Protocolo">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                               <button onClick={() => openHistory(item.process.idSolicitacao || item.process.inscricao, item.process.projeto)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1" title="Ver Histórico">
+                                  <ClipboardList className="h-4 w-4" />
+                                </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {paginatedProtocolos.map((item, idx) => (
-                      <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 ${item.isManual ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                        <td className="px-6 py-4">
-                          <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] || 'bg-gray-100 text-gray-700'}`}>
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">{item.numeroProcesso || '-'}</td>
-                        <td className="px-6 py-4">{item.valor || '-'}</td>
-                        <td className="px-6 py-4">
-                           <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${item.taxa === 'SIM' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
-                            {item.taxa || 'NÃO'}
-                           </span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-gray-900 dark:text-gray-200">
-                          {item.protocolo || '-'}
-                          {item.isManual && <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Manual</span>}
-                        </td>
-                        <td className="px-6 py-4">{item.dataProtocolo || '-'}</td>
-                        <td className="px-6 py-4">{item.dataAprovacao || '-'}</td>
-                        <td className="px-6 py-4" title={item.observacao || ''}>
-                          <span className="truncate block max-w-[150px]">{item.observacao || '-'}</span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
-                            {openTreatment && (
-                              <button onClick={() => openTreatment({ ...item.process, isLayer3: true, protocolId: item.id, status: item.status, protocol: item.protocolo })} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Protocolo">
-                                <Edit className="h-4 w-4" />
-                              </button>
-                            )}
-                            <button onClick={() => openHistory(item.process.idSolicitacao || item.process.inscricao, item.process.projeto)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-1" title="Ver Histórico">
-                              <ClipboardList className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
                   ))}
                   {protocolos.length === 0 && (
                     <tr>
@@ -854,9 +909,47 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
               <div className="p-6 overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">N° Protocolo</label>
+                    <input
+                      type="text"
+                      required
+                      value={protocolForm.protocolo || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Concessionária</label>
+                    <select
+                      required
+                      value={protocolForm.concessionaria || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, concessionaria: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="">Selecione</option>
+                      {CONCESSIONARIAS.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Parceira</label>
+                    <input
+                      type="text"
+                      required
+                      disabled={role === 'PARCEIRA'}
+                      value={protocolForm.parceira || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, parceira: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Status Atual</label>
                     <select
-                      value={protocolForm.status || 'NOVO'}
+                      required
+                      value={protocolForm.status || ''}
                       onChange={(e) => setProtocolForm({...protocolForm, status: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
@@ -867,12 +960,12 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">N° Processo</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Protocolo</label>
                     <input
-                      type="text"
-                      value={protocolForm.numeroProcesso || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, numeroProcesso: e.target.value.toUpperCase()})}
-                      style={{ textTransform: 'uppercase' }}
+                      type="date"
+                      required
+                      value={protocolForm.dataProtocolo || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
                   </div>
@@ -880,6 +973,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Valor</label>
                     <input
                       type="text"
+                      required
                       value={protocolForm.valor || ''}
                       onChange={(e) => {
                         let val = e.target.value.replace(/\D/g, "");
@@ -898,8 +992,57 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     />
                   </div>
                   <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Vencimento Boleto</label>
+                    <input
+                      type="date"
+                      required
+                      value={protocolForm.dataVencimento || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, dataVencimento: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo</label>
+                    <select
+                      required
+                      value={protocolForm.tipo || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, tipo: e.target.value})}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="">Selecione</option>
+                      <option value="RODOVIA/TRANSVERSAL">RODOVIA/TRANSVERSAL</option>
+                      <option value="RODOVIA/LONGITUDINAL">RODOVIA/LONGITUDINAL</option>
+                      <option value="LINHA DE TRANSMISSAO">LINHA DE TRANSMISSAO</option>
+                      <option value="FERROVIA/TRANSVERSAL">FERROVIA/TRANSVERSAL</option>
+                      <option value="FERROVIA/LONGITUDINAL">FERROVIA/LONGITUDINAL</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Rodovia</label>
+                    <input
+                      type="text"
+                      required
+                      value={protocolForm.rodovia || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, rodovia: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">KM</label>
+                    <input
+                      type="text"
+                      required
+                      value={protocolForm.km || ''}
+                      onChange={(e) => setProtocolForm({...protocolForm, km: e.target.value.toUpperCase()})}
+                      style={{ textTransform: 'uppercase' }}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Taxa?</label>
                     <select
+                      required
                       value={protocolForm.taxa || 'NÃO'}
                       onChange={(e) => setProtocolForm({...protocolForm, taxa: e.target.value})}
                       className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
@@ -907,43 +1050,6 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                       <option value="SIM">SIM</option>
                       <option value="NÃO">NÃO</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">N° Protocolo</label>
-                    <input
-                      type="text"
-                      value={protocolForm.protocolo || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, protocolo: e.target.value.toUpperCase()})}
-                      style={{ textTransform: 'uppercase' }}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Protocolo</label>
-                    <input
-                      type="date"
-                      value={protocolForm.dataProtocolo || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, dataProtocolo: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Data Aprovação</label>
-                    <input
-                      type="date"
-                      value={protocolForm.dataAprovacao || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, dataAprovacao: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Observação</label>
-                    <input
-                      type="text"
-                      value={protocolForm.observacao || ''}
-                      onChange={(e) => setProtocolForm({...protocolForm, observacao: e.target.value})}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    />
                   </div>
                 </div>
               </div>

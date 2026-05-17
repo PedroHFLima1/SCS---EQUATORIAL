@@ -1,30 +1,32 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { EyeOff, Moon, Sun, Loader2, Key } from 'lucide-react';
-import Image from 'next/image';
-import { useTheme } from 'next-themes';
-import { useAuth } from '@/app/context/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { EyeOff, Eye, Moon, Sun, Loader2, Key } from "lucide-react";
+import Image from "next/image";
+import { useTheme } from "next-themes";
+import { useAuth } from "@/app/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const { role, user, loading: authLoading } = useAuth();
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotMessage, setForgotMessage] = useState('');
-  const [forgotError, setForgotError] = useState('');
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotError, setForgotError] = useState("");
   const [isForgotLoading, setIsForgotLoading] = useState(false);
-  const [forgotStep, setForgotStep] = useState<'email' | 'code'>('email');
-  const [forgotCode, setForgotCode] = useState('');
-  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotStep, setForgotStep] = useState<"email" | "code">("email");
+  const [forgotCode, setForgotCode] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
 
   const [isManualLogin, setIsManualLogin] = useState(false);
 
@@ -40,32 +42,33 @@ export default function LoginPage() {
   useEffect(() => {
     // Only redirect if the user manually logged in during this session
     if (isManualLogin && user && !authLoading) {
-      if (role === 'ADMIN') {
-        router.push('/dashboard/admin');
-      } else if (role === 'GESTOR_AMBIENTAL') {
-        router.push('/dashboard/ambiental');
-      } else if (role === 'GESTOR_ANUENCIA') {
-        router.push('/dashboard/anuencia');
-      } else if (role === 'GESTOR_TRAVESSIA') {
-        router.push('/dashboard/travessia');
+      if (role === "ADMIN") {
+        router.push("/dashboard/admin");
+      } else if (role === "GESTOR_AMBIENTAL") {
+        router.push("/dashboard/ambiental");
+      } else if (role === "GESTOR_ANUENCIA") {
+        router.push("/dashboard/anuencia");
+      } else if (role === "GESTOR_TRAVESSIA") {
+        router.push("/dashboard/travessia");
       } else {
         // Fallback or for PARCEIRA
-        router.push('/dashboard/travessia');
+        router.push("/dashboard/travessia");
       }
     }
   }, [user, role, authLoading, router, isManualLogin]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
     setIsManualLogin(true);
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (signInError) {
         setError(signInError.message);
@@ -73,7 +76,7 @@ export default function LoginPage() {
       }
       // The redirect will be handled by the useEffect watching `user` and `role`
     } catch (err) {
-      setError('Ocorreu um erro inesperado. Tente novamente.');
+      setError("Ocorreu um erro inesperado. Tente novamente.");
       setIsManualLogin(false);
       console.error(err);
     } finally {
@@ -83,23 +86,26 @@ export default function LoginPage() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setForgotError('');
-    setForgotMessage('');
+    setForgotError("");
+    setForgotMessage("");
     setIsForgotLoading(true);
 
     try {
-      const { requestPasswordReset } = await import('@/app/actions/users');
-      const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const { requestPasswordReset } = await import("@/app/actions/users");
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : undefined;
       const result = await requestPasswordReset(forgotEmail, origin);
-      
+
       if (result.error) {
         setForgotError(result.error);
       } else {
-        setForgotMessage('Verifique seu e-mail para obter o código ou link de redefinição.');
-        setForgotStep('code');
+        setForgotMessage(
+          "Verifique seu e-mail para obter o código ou link de redefinição.",
+        );
+        setForgotStep("code");
       }
     } catch (err) {
-      setForgotError('Ocorreu um erro inesperado.');
+      setForgotError("Ocorreu um erro inesperado.");
     } finally {
       setIsForgotLoading(false);
     }
@@ -107,41 +113,43 @@ export default function LoginPage() {
 
   const handleResetWithCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    setForgotError('');
+    setForgotError("");
     setIsForgotLoading(true);
 
     try {
       if (forgotNewPassword.length < 6) {
-        setForgotError('A senha deve ter pelo menos 6 caracteres.');
+        setForgotError("A senha deve ter pelo menos 6 caracteres.");
         return;
       }
 
       let parsedToken = forgotCode.trim();
-      let type: 'recovery' | 'magiclink' = 'recovery';
+      let type: "recovery" | "magiclink" = "recovery";
 
       // Verifica se o usuário colou a URL inteira do tipo localhost:3000/#access_token=... ou um token gigante (hashed)
       // O Supabase às vezes gera um link com `token=...` ou usa Implicit Flow com `#access_token=...`
-      if (parsedToken.includes('access_token=')) {
+      if (parsedToken.includes("access_token=")) {
         const urlParams = new URLSearchParams(
-          parsedToken.includes('#') ? parsedToken.substring(parsedToken.indexOf('#') + 1) : parsedToken
+          parsedToken.includes("#")
+            ? parsedToken.substring(parsedToken.indexOf("#") + 1)
+            : parsedToken,
         );
-        const accessToken = urlParams.get('access_token');
-        const refreshToken = urlParams.get('refresh_token');
-        
+        const accessToken = urlParams.get("access_token");
+        const refreshToken = urlParams.get("refresh_token");
+
         if (accessToken && refreshToken) {
           // Se colou o link com session, fazemos set da session direto
           const { error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
-            refresh_token: refreshToken
+            refresh_token: refreshToken,
           });
-          
+
           if (sessionError) {
-            setForgotError('Link inválido ou expirado.');
+            setForgotError("Link inválido ou expirado.");
             return;
           }
-          
+
           const { error: updateError } = await supabase.auth.updateUser({
-            password: forgotNewPassword
+            password: forgotNewPassword,
           });
 
           if (updateError) {
@@ -149,26 +157,28 @@ export default function LoginPage() {
             return;
           }
 
-          setForgotMessage('Senha redefinida com sucesso! Redirecionando...');
+          setForgotMessage("Senha redefinida com sucesso! Redirecionando...");
           await supabase.auth.signOut();
-          
+
           setTimeout(() => {
             setIsForgotModalOpen(false);
-            setForgotStep('email');
-            setForgotEmail('');
-            setForgotCode('');
-            setForgotNewPassword('');
-            setForgotMessage('');
+            setForgotStep("email");
+            setForgotEmail("");
+            setForgotCode("");
+            setForgotNewPassword("");
+            setForgotMessage("");
           }, 3000);
           return;
         }
-      } else if (parsedToken.includes('token=')) {
-         const urlParams = new URLSearchParams(
-          parsedToken.includes('?') ? parsedToken.substring(parsedToken.indexOf('?') + 1) : parsedToken
+      } else if (parsedToken.includes("token=")) {
+        const urlParams = new URLSearchParams(
+          parsedToken.includes("?")
+            ? parsedToken.substring(parsedToken.indexOf("?") + 1)
+            : parsedToken,
         );
-        const tokenToken = urlParams.get('token');
+        const tokenToken = urlParams.get("token");
         if (tokenToken) {
-           parsedToken = tokenToken;
+          parsedToken = tokenToken;
         }
       }
 
@@ -176,16 +186,16 @@ export default function LoginPage() {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email: forgotEmail,
         token: parsedToken,
-        type: 'recovery'
+        type: "recovery",
       });
 
       if (verifyError) {
-        setForgotError('Código ou link inválido ou expirado.');
+        setForgotError("Código ou link inválido ou expirado.");
         return;
       }
 
       const { error: updateError } = await supabase.auth.updateUser({
-        password: forgotNewPassword
+        password: forgotNewPassword,
       });
 
       if (updateError) {
@@ -193,27 +203,26 @@ export default function LoginPage() {
         return;
       }
 
-      setForgotMessage('Senha redefinida com sucesso! Redirecionando...');
+      setForgotMessage("Senha redefinida com sucesso! Redirecionando...");
       await supabase.auth.signOut();
-      
+
       setTimeout(() => {
         setIsForgotModalOpen(false);
-        setForgotStep('email');
-        setForgotEmail('');
-        setForgotCode('');
-        setForgotNewPassword('');
-        setForgotMessage('');
+        setForgotStep("email");
+        setForgotEmail("");
+        setForgotCode("");
+        setForgotNewPassword("");
+        setForgotMessage("");
       }, 3000);
-      
     } catch (err) {
-      setForgotError('Ocorreu um erro inesperado.');
+      setForgotError("Ocorreu um erro inesperado.");
     } finally {
       setIsForgotLoading(false);
     }
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   if (authLoading) {
@@ -229,15 +238,20 @@ export default function LoginPage() {
       {/* Left Side - Image */}
       <div className="relative hidden w-1/2 lg:block">
         <Image
-          src="https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=2000&auto=format&fit=crop"
+          src="https://picsum.photos/seed/energy/1920/1080"
           alt="Torre de Transmissão de Energia"
           fill
           className="object-cover"
           priority
+          referrerPolicy="no-referrer"
         />
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-12">
-          <h2 className="text-3xl font-bold text-white mb-2">Energia que move o futuro</h2>
-          <p className="text-lg font-medium text-gray-200">Excelência em infraestrutura e distribuição.</p>
+          <h2 className="text-3xl font-bold text-white mb-2">
+            Energia que move o futuro
+          </h2>
+          <p className="text-lg font-medium text-gray-200">
+            Excelência em infraestrutura e distribuição.
+          </p>
         </div>
       </div>
 
@@ -246,26 +260,38 @@ export default function LoginPage() {
         {mounted && (
           <div className="absolute right-8 top-8 flex items-center space-x-2 rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 transition-colors">
             <span className="text-sm text-gray-600 dark:text-gray-300">
-              {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+              {theme === "dark" ? "Modo Claro" : "Modo Escuro"}
             </span>
-            <div 
+            <div
               onClick={toggleTheme}
-              className={`flex h-6 w-10 cursor-pointer items-center rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}
+              className={`flex h-6 w-10 cursor-pointer items-center rounded-full p-1 transition-colors ${theme === "dark" ? "bg-blue-600" : "bg-gray-300"}`}
             >
-              <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0'}`}></div>
+              <div
+                className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${theme === "dark" ? "translate-x-4" : "translate-x-0"}`}
+              ></div>
             </div>
-            {theme === 'dark' ? <Moon className="h-4 w-4 text-gray-400" /> : <Sun className="h-4 w-4 text-gray-500" />}
+            {theme === "dark" ? (
+              <Moon className="h-4 w-4 text-gray-400" />
+            ) : (
+              <Sun className="h-4 w-4 text-gray-500" />
+            )}
           </div>
         )}
 
         <div className="mx-auto w-full max-w-md">
           <div className="mb-8 flex items-center text-4xl font-bold">
             <span className="text-yellow-500">SCS</span>
-            <span className="ml-2 text-gray-800 dark:text-gray-100 font-light">Equatorial</span>
+            <span className="ml-2 text-gray-800 dark:text-gray-100 font-light">
+              Equatorial
+            </span>
           </div>
 
-          <h1 className="mb-2 text-3xl font-semibold text-gray-900 dark:text-white">Acesso Corporativo</h1>
-          <p className="mb-8 text-gray-600 dark:text-gray-400">Acesso seguro ao sistema de controle de projetos SCS.</p>
+          <h1 className="mb-2 text-3xl font-semibold text-gray-900 dark:text-white">
+            Acesso Corporativo
+          </h1>
+          <p className="mb-8 text-gray-600 dark:text-gray-400">
+            Acesso seguro ao sistema de controle de projetos SCS.
+          </p>
 
           <form onSubmit={handleSignIn} className="space-y-6">
             {error && (
@@ -276,7 +302,11 @@ export default function LoginPage() {
                       Erro ao fazer login
                     </h3>
                     <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                      <p>{error === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : error}</p>
+                      <p>
+                        {error === "Invalid login credentials"
+                          ? "E-mail ou senha incorretos."
+                          : error}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -296,15 +326,18 @@ export default function LoginPage() {
                 disabled={isLoading}
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Domínios aceitos: @equatorialenergia.com.br, @applus.com ou @afaplan.com
+                Domínios aceitos: @equatorialenergia.com.br, @applus.com ou
+                @afaplan.com
               </p>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Senha</label>
+              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">
+                Senha
+              </label>
               <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Digite sua senha"
@@ -314,14 +347,15 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
+                  onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
-                  <EyeOff className="h-4 w-4" />
+                  {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 </button>
               </div>
               <div className="mt-2 text-right">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsForgotModalOpen(true)}
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
@@ -341,7 +375,7 @@ export default function LoginPage() {
                   Entrando...
                 </>
               ) : (
-                'Entrar'
+                "Entrar"
               )}
             </button>
           </form>
@@ -356,14 +390,23 @@ export default function LoginPage() {
               <div className="flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4 mx-auto">
                 <Key className="h-6 w-6 text-blue-600 dark:text-blue-500" />
               </div>
-              <h3 className="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">Redefinir Senha</h3>
+              <h3 className="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">
+                Redefinir Senha
+              </h3>
               <p className="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
-                {forgotStep === 'email' 
-                  ? 'Informe seu e-mail corporativo para receber um código ou link de redefinição de senha.'
-                  : 'Insira o código de 6 dígitos que chegou no email. Se chegou um link como localhost, copie o link inteiro e cole-o aqui.'}
+                {forgotStep === "email"
+                  ? "Informe seu e-mail corporativo para receber um código ou link de redefinição de senha."
+                  : "Insira o código de 6 dígitos que chegou no email. Se chegou um link como localhost, copie o link inteiro e cole-o aqui."}
               </p>
 
-              <form onSubmit={forgotStep === 'email' ? handleForgotPassword : handleResetWithCode} className="space-y-4">
+              <form
+                onSubmit={
+                  forgotStep === "email"
+                    ? handleForgotPassword
+                    : handleResetWithCode
+                }
+                className="space-y-4"
+              >
                 {forgotError && (
                   <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-300">
                     {forgotError}
@@ -374,10 +417,12 @@ export default function LoginPage() {
                     {forgotMessage}
                   </div>
                 )}
-                
-                {forgotStep === 'email' ? (
+
+                {forgotStep === "email" ? (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">E-mail</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">
+                      E-mail
+                    </label>
                     <input
                       type="email"
                       value={forgotEmail}
@@ -391,7 +436,9 @@ export default function LoginPage() {
                 ) : (
                   <>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Código ou Link Copiado</label>
+                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">
+                        Código ou Link Copiado
+                      </label>
                       <input
                         type="text"
                         value={forgotCode}
@@ -403,16 +450,27 @@ export default function LoginPage() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">Nova Senha</label>
-                      <input
-                        type="password"
-                        value={forgotNewPassword}
-                        onChange={(e) => setForgotNewPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                        required
-                        disabled={isForgotLoading}
-                      />
+                      <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-200">
+                        Nova Senha
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showForgotNewPassword ? "text" : "password"}
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none pr-10"
+                          required
+                          disabled={isForgotLoading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          {showForgotNewPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -422,12 +480,12 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => {
                       setIsForgotModalOpen(false);
-                      setForgotError('');
-                      setForgotMessage('');
-                      setForgotEmail('');
-                      setForgotCode('');
-                      setForgotNewPassword('');
-                      setForgotStep('email');
+                      setForgotError("");
+                      setForgotMessage("");
+                      setForgotEmail("");
+                      setForgotCode("");
+                      setForgotNewPassword("");
+                      setForgotStep("email");
                     }}
                     className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
@@ -435,10 +493,19 @@ export default function LoginPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isForgotLoading || (forgotStep === 'email' ? !forgotEmail : (!forgotCode || !forgotNewPassword))}
+                    disabled={
+                      isForgotLoading ||
+                      (forgotStep === "email"
+                        ? !forgotEmail
+                        : !forgotCode || !forgotNewPassword)
+                    }
                     className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {isForgotLoading ? 'Carregando...' : (forgotStep === 'email' ? 'Enviar Código' : 'Redefinir Senha')}
+                    {isForgotLoading
+                      ? "Carregando..."
+                      : forgotStep === "email"
+                        ? "Enviar Código"
+                        : "Redefinir Senha"}
                   </button>
                 </div>
               </form>

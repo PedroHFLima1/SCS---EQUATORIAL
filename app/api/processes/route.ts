@@ -38,13 +38,17 @@ export async function GET(request: Request) {
       };
     }
     
+    const tipoFluxoFilter = moduleParam === 'ambiental' ? 'AMBIENTAL' : moduleParam === 'travessia' ? 'TRAVESSIA' : undefined;
+    
     const processes = await prisma.process.findMany({
       where: whereClause,
       include: {
         movements: {
+          where: tipoFluxoFilter ? { tipo_fluxo: tipoFluxoFilter } : undefined,
           orderBy: { date: 'desc' }
         },
         protocols: {
+          where: tipoFluxoFilter ? { tipo_fluxo: tipoFluxoFilter } : undefined,
           orderBy: { createdAt: 'desc' }
         }
       },

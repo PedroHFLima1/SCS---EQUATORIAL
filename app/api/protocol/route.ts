@@ -20,10 +20,12 @@ export async function POST(request: Request) {
       rodovia,
       km,
       taxa,
-      numeroProcesso,
-      dataAprovacao,
-      observacao
+      tipo_fluxo
     } = body;
+    
+    if (!tipo_fluxo || !['AMBIENTAL', 'TRAVESSIA'].includes(tipo_fluxo)) {
+      return NextResponse.json({ error: 'tipo_fluxo inválido ou ausente' }, { status: 400 });
+    }
     
     // Copy necessary fields from the base process
     const baseProcess = await prisma.process.findUnique({
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
     const newProtocol = await prisma.protocol.create({
       data: {
         processId: baseProcessId,
-        numero: protocolo || "N/A", // Always ensure a number
+        numero: protocolo,
         concessionaria: concessionaria,
         status: status,
         dataProtocolo: dataProtocolo ? new Date(dataProtocolo) : undefined,
@@ -47,9 +49,7 @@ export async function POST(request: Request) {
         rodovia: rodovia,
         km: km,
         taxa: taxa,
-        numeroProcesso: numeroProcesso,
-        dataAprovacao: dataAprovacao ? new Date(dataAprovacao) : undefined,
-        observacao: observacao
+        tipo_fluxo: tipo_fluxo
       }
     });
 

@@ -125,10 +125,7 @@ export default function TravessiaPage() {
       result = result.filter(p => p.concessionaria === concessionariaFilter);
     }
     if (role !== 'PARCEIRA' && parceiraFilter !== 'Todas') {
-      result = result.filter(p => {
-        const processPartner = p.partner || p.parceiraProjeto || '';
-        return processPartner.toLowerCase() === parceiraFilter.toLowerCase();
-      });
+      result = result.filter(p => (p.partner || p.parceiraProjeto) === parceiraFilter);
     }
 
     // Sorting
@@ -296,7 +293,7 @@ export default function TravessiaPage() {
                   <option>PREVISÃO DE BOLETO</option>
                   <option>AGUARDANDO PAGAMENTO</option>
                   <option>EM TRATATIVA</option>
-                  <option>EM CORREÇÃO</option>
+                  <option>CORREÇÃO</option>
                   <option>EM ELABORAÇÃO</option>
                 </select>
               </div>

@@ -6,10 +6,14 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { inscricao, projeto, observacaoInscricao, observacaoProjeto } = body;
+    const { inscricao, projeto, observacaoInscricao, observacaoProjeto, tipo_fluxo } = body;
 
     if (!inscricao) {
       return NextResponse.json({ error: 'Missing inscricao' }, { status: 400 });
+    }
+    
+    if (tipo_fluxo && !['AMBIENTAL', 'TRAVESSIA'].includes(tipo_fluxo)) {
+       return NextResponse.json({ error: 'tipo_fluxo inválido' }, { status: 400 });
     }
 
     if (observacaoInscricao !== undefined) {
@@ -34,7 +38,8 @@ export async function POST(request: Request) {
           data: {
             processId: firstProcess.id,
             description: `[OBSERVAÇÃO INSCRIÇÃO] ${observacaoInscricao}`,
-            user: body.user || 'Sistema'
+            user: body.user || 'Sistema',
+            tipo_fluxo: tipo_fluxo || 'TRAVESSIA'
           }
         });
       }
@@ -66,7 +71,8 @@ export async function POST(request: Request) {
           data: {
             processId: projProcess.id,
             description: `[OBSERVAÇÃO PROJETO] ${observacaoProjeto}`,
-            user: body.user || 'Sistema'
+            user: body.user || 'Sistema',
+            tipo_fluxo: tipo_fluxo || 'TRAVESSIA'
           }
         });
       }
