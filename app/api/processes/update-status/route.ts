@@ -33,9 +33,28 @@ export async function POST(request: Request) {
     // If it's a protocol update (Layer 3)
     if (isLayer3 || protocolId) {
        const pId = protocolId || id;
+       const updateData: any = { status };
+       if (status === 'PROTOCOLADO' && dataProtocolo) {
+           const d = new Date(dataProtocolo);
+           if (!isNaN(d.getTime())) updateData.dataProtocolo = d;
+       } else if (status === 'PROTOCOLADO') {
+           updateData.dataProtocolo = new Date();
+       }
+       if (dataAprovacao) {
+           const d = new Date(dataAprovacao);
+           if (!isNaN(d.getTime())) updateData.dataAprovacao = d;
+       }
+       if (numeroProcesso !== undefined) updateData.numeroProcesso = numeroProcesso;
+       if (valor !== undefined) updateData.valor = valor;
+       if (dataVencimento !== undefined) updateData.dataVencimento = dataVencimento;
+       if (tipo !== undefined) updateData.tipo = tipo;
+       if (rodovia !== undefined) updateData.rodovia = rodovia;
+       if (km !== undefined) updateData.km = km;
+       if (taxa !== undefined) updateData.taxa = taxa;
+
        await prisma.protocol.update({
           where: { id: pId },
-          data: { status }
+          data: updateData
        });
        
        let finalProcess = null;
@@ -206,6 +225,10 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     const isApproval = (module === 'anuencia' && newStatus === 'ATENDIDO') || 
                        (['travessia', 'ambiental'].includes(module) && newStatus === 'APROVADO');
 
+    if (isApproval) {
+        dataToUpdate.data_triagem = new Date();
+    }
+
     if (module === 'anuencia' && isApproval && process.pendenciaAnuencia) {
       dataToUpdate.pendenciaAnuencia = false;
       if (dataToUpdate.pendenciaTravessia || dataToUpdate.pendenciaAmbiental || process.pendenciaTravessia || process.pendenciaAmbiental) {
@@ -259,11 +282,13 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     } else if (module === 'travessia') {
         const statuses = updatedSiblings.map(s => s.statusTravessia || s.status);
         const triggersEmAndamento = ['PROTOCOLADO', 'EM ANDAMENTO CONCESSIONÁRIA', 'PROTOCOLADO - CORREÇÃO', 'TAXA'];
-        if (statuses.some(s => triggersEmAndamento.includes(s!))) {
-            newInscricaoStatus = 'EM ANDAMENTO';
-        }
+        
         if (statuses.every(s => s === 'APROVADO')) {
             newInscricaoStatus = 'APROVADO';
+        } else if (statuses.some(s => s === 'LIBERADO PARA EXECUÇÃO')) {
+            newInscricaoStatus = 'LIBERADO';
+        } else if (statuses.some(s => triggersEmAndamento.includes(s!))) {
+            newInscricaoStatus = 'EM ANDAMENTO';
         } else if (newInscricaoStatus !== 'EM ANDAMENTO' && statuses.some(s => s !== 'NOVO' && s !== 'NÃO INICIADO')) {
             newInscricaoStatus = 'EM ANDAMENTO';
         }
@@ -293,11 +318,12 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
       data: dataToUpdate,
     });
 
-    if (module === 'ambiental') {
+    if (['ambiental', 'travessia'].includes(module)) {
+      const fluxoType = module.toUpperCase();
       const existingProtocol = await prisma.protocol.findFirst({ 
         where: { 
           processId: process.id,
-          tipo_fluxo: 'AMBIENTAL'
+          tipo_fluxo: fluxoType
         } 
       });
       let dProtocolo = existingProtocol?.dataProtocolo;
@@ -308,6 +334,8 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
           } else {
               dProtocolo = null;
           }
+      } else if (newStatus === 'PROTOCOLADO' && !dProtocolo) {
+          dProtocolo = new Date();
       }
 
       let dAprovacao = existingProtocol?.dataAprovacao;
@@ -327,7 +355,7 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
         dataProtocolo: dProtocolo,
         dataAprovacao: dAprovacao,
         status: newStatus,
-        tipo_fluxo: 'AMBIENTAL'
+        tipo_fluxo: fluxoType
       };
 
       if (existingProtocol) {

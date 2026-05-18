@@ -209,6 +209,33 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../app/api/triagem/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/triagem">> = Specific
+  const handler = {} as typeof import("../../app/api/triagem/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/users/action/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/users/action">> = Specific
+  const handler = {} as typeof import("../../app/api/users/action/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../app/api/users/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/users">> = Specific
+  const handler = {} as typeof import("../../app/api/users/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 
 
 

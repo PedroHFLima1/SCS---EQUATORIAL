@@ -48,7 +48,6 @@ export const CONCESSIONARIAS = [
 ].sort();
 
 export const STATUS_COLORS: Record<string, string> = {
-  'NÃO SE APLICA': 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
   'NÃO INICIADO': 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
   'NOVO': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
   'EM ANÁLISE': 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800',
@@ -84,5 +83,6 @@ export const EM_ANDAMENTO_STATUSES = [
   'PROTOCOLADO',
   'EM TRATATIVA',
   'CORREÇÃO',
-  'EM ELABORAÇÃO'
+  'EM ELABORAÇÃO',
+  'EM ANDAMENTO'
 ];

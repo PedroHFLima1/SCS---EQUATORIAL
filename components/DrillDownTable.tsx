@@ -197,12 +197,15 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                             : moduleName === 'travessia' ? (p.statusTravessia || 'NÃO INICIADO')
                             : (p.status || 'NÃO INICIADO');
 
+        const protocol = (p.protocols || []).filter((pt: any) => pt.tipo_fluxo === moduleName?.toUpperCase())[0];
+        const dataProtocoloStr = protocol?.dataProtocolo ? format(new Date(protocol.dataProtocolo), 'dd/MM/yyyy') : (p.dataEnvioObra ? format(new Date(p.dataEnvioObra), 'dd/MM/yyyy') : '-');
+
         map.set(p.projeto, {
           projeto: p.projeto,
           parceira: p.parceiraProjeto || p.partner,
           status: projetoStatus,
-          dataProtocolo: p.dataEnvioObra ? format(new Date(p.dataEnvioObra), 'dd/MM/yyyy') : '-',
-          dataAprovacao: approvalMovement ? format(new Date(approvalMovement.date), 'dd/MM/yyyy') : '-',
+          dataProtocolo: dataProtocoloStr,
+          dataAprovacao: p.data_triagem ? format(new Date(p.data_triagem), 'dd/MM/yyyy') : (approvalMovement ? format(new Date(approvalMovement.date), 'dd/MM/yyyy') : '-'),
           dataAnuencia: anuenciaApproval ? format(new Date(anuenciaApproval.date), 'dd/MM/yyyy') : '-',
           municipio: p.municipio || '-',
           regional: p.regional || '-',
@@ -688,7 +691,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                     <th className="px-6 py-3 font-medium">STATUS ATUAL</th>
                     
                     {/* Conditional Columns based on Module */}
-                    {(moduleName === 'anuencia' || moduleName === 'ambiental') && (
+                    {(moduleName === 'travessia' || moduleName === 'ambiental') && (
                       <th className="px-6 py-3 font-medium">DATA PROTOCOLO</th>
                     )}
                     {(moduleName === 'ambiental' || moduleName === 'travessia' || moduleName === 'anuencia') && (
@@ -727,7 +730,7 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
                         </span>
                       </td>
                       
-                      {(moduleName === 'anuencia' || moduleName === 'ambiental') && (
+                      {(moduleName === 'travessia' || moduleName === 'ambiental') && (
                         <td className="px-6 py-4">{item.dataProtocolo}</td>
                       )}
                       {(moduleName === 'ambiental' || moduleName === 'travessia' || moduleName === 'anuencia') && (

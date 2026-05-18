@@ -188,7 +188,7 @@ export function ProcessTreatmentModal({
     }
     
     if (process.isLayer1) {
-      return ['NÃO SE APLICA', 'NÃO INICIADO', 'EM ANDAMENTO', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
+      return ['NÃO INICIADO', 'EM ANDAMENTO', 'PROTOCOLADO', 'APROVADO', 'CANCELADO'];
     }
     
     switch (module) {
