@@ -9,6 +9,18 @@ import next from 'next';
 import cors from 'cors';
 import { prisma } from './lib/prisma';
 
+import { parse } from 'url';
+import util from 'util';
+
+process.on('uncaughtException', (err) => {
+  console.error('⨯ uncaughtException:', err);
+  // Optional: Prevent the application from crashing
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⨯ unhandledRejection:', reason);
+});
+
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
@@ -50,7 +62,8 @@ app.prepare().then(() => {
 
   // Handle all other requests with Next.js
   server.all(/.*/, (req, res) => {
-    return handle(req, res);
+    const parsedUrl = parse(req.url, true);
+    return handle(req, res, parsedUrl);
   });
 
   const PORT = 3000;

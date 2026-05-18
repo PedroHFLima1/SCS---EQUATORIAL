@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        'localhost:3000',
+        'ais-dev-eigsujcpqbfctefw4sbxuo-163080127208.us-east1.run.app',
+        'ais-pre-eigsujcpqbfctefw4sbxuo-163080127208.us-east1.run.app'
+      ]
+    }
+  },
   // Allow access to remote image placeholder.
   images: {
     remotePatterns: [

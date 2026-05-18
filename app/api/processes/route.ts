@@ -5,8 +5,12 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   try {
-    const url = new URL(request.url, `http://${request.headers.get('host') || 'localhost'}`);
-    const { searchParams } = url;
+    let searchParams: URLSearchParams;
+    if (request.url.startsWith('http')) {
+      searchParams = new URL(request.url).searchParams;
+    } else {
+      searchParams = new URL(request.url, `http://${request.headers.get('host') || 'localhost'}`).searchParams;
+    }
     const moduleParam = searchParams.get('module');
     console.log(`[API] Fetching processes for module: ${moduleParam}`);
     

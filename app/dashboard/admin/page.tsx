@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
-import { ShieldAlert, Users, Settings, Eye, Search, Filter, Edit2, Pencil, XCircle, X, AlertTriangle, Key, CheckCircle, Clock, Activity, AlertOctagon, RotateCcw, AlertCircle, Loader2, Trash2, Upload } from 'lucide-react';
+import { ShieldAlert, Users, Settings, Eye, Search, Filter, Edit2, Pencil, XCircle, X, AlertTriangle, Key, CheckCircle, Clock, Activity, AlertOctagon, RotateCcw, AlertCircle, Loader2, Trash2, Upload, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, deleteUser } from '@/app/actions/users';
 import Papa from 'papaparse';
@@ -155,6 +155,18 @@ export default function AdminPage() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const csvContent = "Inscrição,Projeto,Módulo,Novo Status\nEX-001,PROJ-123,Ambiental,PROTOCOLADO\nEX-002,PROJ-456,Travessia,APROVADO\n";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "modelo_atualizacao_status.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleImport = () => {
     if (!selectedFile) return;
 
@@ -167,7 +179,7 @@ export default function AdminPage() {
       complete: async (results) => {
         try {
           const data = results.data as any[];
-          const BATCH_SIZE = 1000;
+          const BATCH_SIZE = 200;
           let totalImported = 0;
 
           for (let i = 0; i < data.length; i += BATCH_SIZE) {
@@ -182,19 +194,19 @@ export default function AdminPage() {
 
             if (!res.ok) {
               const errorData = await res.json().catch(() => ({}));
-              throw new Error(errorData.error || 'Falha na importação do lote');
+              throw new Error(errorData.error || 'Falha na atualização massiva do lote');
             }
             
             const result = await res.json();
             totalImported += result.count || 0;
           }
 
-          setImportStatus(`Sucesso! ${totalImported} projetos alterados via Importação Massiva.`);
+          setImportStatus(`Sucesso! ${totalImported} projetos tiveram o status atualizado cirurgicamente.`);
           setSelectedFile(null); // Reset file selection after success
           fetchProcesses(); // Refresh data
         } catch (error: any) {
           console.error('Import error:', error);
-          setImportStatus(`Erro na importação: ${error.message}`);
+          setImportStatus(`Erro na atualização: ${error.message}`);
         } finally {
           setIsImporting(false);
         }
@@ -860,57 +872,84 @@ export default function AdminPage() {
       {/* Tab Content: Importação de Dados */}
       {activeTab === 'importacao' && (
         <div className="max-w-2xl rounded-lg bg-white dark:bg-gray-900 shadow-sm border border-transparent dark:border-gray-800 p-6">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-6">IMPORTAÇÃO DE DADOS (CSV)</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">ATUALIZAÇÃO MASSIVA DE STATUS POR MÓDULO</h2>
+            <button
+              onClick={handleDownloadTemplate}
+              className="flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Baixar Planilha Modelo
+            </button>
+          </div>
           
           <div className="space-y-6">
+            <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4 border border-blue-100 dark:border-blue-800/30">
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-3 shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800 dark:text-blue-300">
+                  <p className="font-medium mb-1">Atenção às Regras de Atualização Cirúrgica</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>O arquivo CSV deve conter exatamente o cabeçalho: <strong>Inscrição,Projeto,Módulo,Novo Status</strong>.</li>
+                    <li>As atualizações são <strong>estritamente baseadas no Módulo</strong> (&quot;Ambiental&quot;, &quot;Travessia&quot; ou &quot;Anuência&quot;).</li>
+                    <li>O campo de &quot;Status da Inscrição&quot; não será modificado (controle automatizado pelo sistema).</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Selecione o arquivo CSV
+                Selecione o arquivo CSV preenchido
               </label>
               <div className="flex items-center space-x-4">
                 <input
                   type="file"
                   accept=".csv"
                   onChange={handleFileChange}
+                  disabled={isImporting}
                   className="block w-full text-sm text-gray-500 dark:text-gray-400
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-md file:border-0
                     file:text-sm file:font-medium
                     file:bg-blue-50 file:text-blue-700
                     hover:file:bg-blue-100
+                    disabled:opacity-50 disabled:cursor-not-allowed
                     dark:file:bg-blue-900/30 dark:file:text-blue-400"
                 />
                 <button
                   onClick={handleImport}
                   disabled={!selectedFile || isImporting}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  className="shrink-0 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-sm"
                 >
                   {isImporting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Importando...
+                      Processando...
                     </>
                   ) : (
                     <>
                       <Upload className="mr-2 h-4 w-4" />
-                      Importar
+                      Processar Atualização
                     </>
                   )}
                 </button>
               </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                O arquivo deve conter as colunas da query SQL (ID_SOLICITACAO, PROJETO, FLUXO_PASSAGEM, FLUXO_TRAVESSIA, FLUXO_AMBIENTAL, PARCEIRA_PROJETO, etc).
-              </p>
             </div>
             
             {importStatus && (
-              <div className={`p-4 rounded-md ${importStatus.includes('Erro') ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                {importStatus}
+              <div className={`p-4 rounded-md border flex items-start ${importStatus.includes('Erro') || importStatus.includes('Falha') ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/30' : importStatus.includes('Sucesso') ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/30' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/30'}`}>
+                {importStatus.includes('Sucesso') ? (
+                  <CheckCircle className="h-5 w-5 mr-3 shrink-0 mt-0.5" />
+                ) : importStatus.includes('Erro') || importStatus.includes('Falha') ? (
+                  <AlertTriangle className="h-5 w-5 mr-3 shrink-0 mt-0.5" />
+                ) : (
+                  <Activity className="h-5 w-5 mr-3 shrink-0 mt-0.5" />
+                )}
+                <div>{importStatus}</div>
               </div>
             )}
           </div>
-
-
         </div>
       )}
 
