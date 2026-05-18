@@ -18,6 +18,15 @@ export async function POST(request: Request) {
         concessionaria
     };
     
+    let changesDesc: string[] = [];
+    if (process) {
+      if (process.module !== module) changesDesc.push(`Módulo: ${process.module} -> ${module}`);
+      if (process.partner !== partner) changesDesc.push(`Parceiro: ${process.partner} -> ${partner}`);
+      if (process.status !== status) changesDesc.push(`Status: ${process.status} -> ${status}`);
+      if (process.protocol !== protocol) changesDesc.push(`Protocolo: ${process.protocol} -> ${protocol}`);
+      if (process.concessionaria !== concessionaria) changesDesc.push(`Concessionária: ${process.concessionaria} -> ${concessionaria}`);
+    }
+
     if (process && process.status !== status) {
         dataToUpdate.statusUpdatedAt = new Date();
         const terminalStatuses = ['APROVADO', 'CANCELADO', 'REPROVADO', 'NÃO SE APLICA'];
@@ -37,7 +46,7 @@ export async function POST(request: Request) {
     await prisma.movement.create({
       data: {
         processId: id,
-        description: `Edição Administrativa: Status alterado para ${status}`,
+        description: changesDesc.length > 0 ? `Edição Administrativa: ${changesDesc.join(', ')}` : `Edição Administrativa (sem alterações detectadas)`,
         user: user || 'Admin',
         module: module || 'admin',
         tipo_fluxo: (module || 'SISTEMA').toUpperCase() as any

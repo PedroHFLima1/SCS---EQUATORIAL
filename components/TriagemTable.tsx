@@ -15,7 +15,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { aprovarTriagem, reprovarTriagem } from '@/app/actions/triagem';
 import { useAuth } from '@/app/context/AuthContext';
 import {
   Dialog,
@@ -193,7 +192,14 @@ export function TriagemTable({ items }: TriagemTableProps) {
       pendenciaAmbiental: selectedItem.pendenciaAmbiental,
     };
 
-    await aprovarTriagem(selectedItem.id, changes, email || 'Desconhecido');
+    await fetch('/api/triagem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'aprovarTriagem',
+        payload: { id: selectedItem.id, changes, userEmail: email || 'Desconhecido' }
+      })
+    });
     
     // Optimistic update
     setLocalItems(prev => prev.map(i => i.id === selectedItem.id ? { ...i, statusTriagem: 'FINALIZADO', aprovadoPor: email || 'Desconhecido', dataAprovacao: new Date() } : i));
@@ -206,7 +212,14 @@ export function TriagemTable({ items }: TriagemTableProps) {
   const handleReprovar = async () => {
     if (!selectedItem || !reprovationReason.trim()) return;
 
-    await reprovarTriagem(selectedItem.id, reprovationReason, email || 'Desconhecido');
+    await fetch('/api/triagem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'reprovarTriagem',
+        payload: { id: selectedItem.id, motivoReprovacao: reprovationReason, userEmail: email || 'Desconhecido' }
+      })
+    });
     
     // Optimistic update
     setLocalItems(prev => prev.map(i => i.id === selectedItem.id ? { ...i, statusTriagem: 'REPROVADO', aprovadoPor: email || 'Desconhecido', dataAprovacao: new Date() } : i));
@@ -227,7 +240,14 @@ export function TriagemTable({ items }: TriagemTableProps) {
           pendenciaTravessia: item.pendenciaTravessia,
           pendenciaAmbiental: item.pendenciaAmbiental,
         };
-        await aprovarTriagem(id, changes, email || 'Desconhecido');
+        await fetch('/api/triagem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'aprovarTriagem',
+            payload: { id, changes, userEmail: email || 'Desconhecido' }
+          })
+        });
       });
 
       await Promise.all(promises);
@@ -246,7 +266,14 @@ export function TriagemTable({ items }: TriagemTableProps) {
     if (!reprovationReason.trim()) return;
     try {
       const promises = Array.from(selectedIds).map(async (id) => {
-        await reprovarTriagem(id, reprovationReason, email || 'Desconhecido');
+        await fetch('/api/triagem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'reprovarTriagem',
+            payload: { id, motivoReprovacao: reprovationReason, userEmail: email || 'Desconhecido' }
+          })
+        });
       });
 
       await Promise.all(promises);

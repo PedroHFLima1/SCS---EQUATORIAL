@@ -91,10 +91,15 @@ export default function LoginPage() {
     setIsForgotLoading(true);
 
     try {
-      const { requestPasswordReset } = await import("@/app/actions/users");
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : undefined;
-      const result = await requestPasswordReset(forgotEmail, origin);
+      const res = await fetch('/api/users/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'requestPasswordReset',
+          payload: { email: forgotEmail, origin: typeof window !== "undefined" ? window.location.origin : undefined }
+        })
+      });
+      const result = await res.json();
 
       if (result.error) {
         setForgotError(result.error);

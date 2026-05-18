@@ -38,6 +38,7 @@ export async function POST(request: Request) {
           data: { status }
        });
        
+       let finalProcess = null;
        const updatedProtocol = await prisma.protocol.findUnique({ where: { id: pId }, include: { process: true }});
        if (updatedProtocol && updatedProtocol.process) {
            await prisma.movement.create({
@@ -61,12 +62,7 @@ export async function POST(request: Request) {
            });
            
            let newProjetoStatus = null;
-           // QUANDO MUDAR O PROTOCOLO PARA APROVADO, O PROJETO AUTOMATICAMENTE IRÁ PARA APROVADO
-           // SE TIVER MAIS DE UM PROTOCOLO, O PROJETO SÓ MUDARÁ PARA APROVADO SE TODOS ESTIVEREM "APROVADO"
            const allApproved = allProtocols.length > 0 && allProtocols.every(p => p.status === 'APROVADO');
-           
-           // QUANDO MUDAR O PROTOCOLO PARA PROTOCOLADO, O PROJETO AUTOMATICAMENTE IRÁ PARA PROTOCOLADO
-           // SE TIVER MAIS DE UM PROTOCOLO, O PROJETO SÓ MUDARÁ PARA PROTOCOLADO SE TODOS ESTIVEREM "PROTOCOLADO"
            const allProtocolado = allProtocols.length > 0 && allProtocols.every(p => p.status === 'PROTOCOLADO');
            
            if (status === 'PROTOCOLADO') {
@@ -78,8 +74,7 @@ export async function POST(request: Request) {
            }
            
            if (newProjetoStatus) {
-               // Update Project which will then cascade to Inscricao
-               await cascadeProjectUpdate(updatedProtocol.processId, newProjetoStatus, user, flow.toLowerCase());
+               finalProcess = await cascadeProjectUpdate(updatedProtocol.processId, newProjetoStatus, user, flow.toLowerCase());
            } else {
                const p = await prisma.process.findUnique({ where: { id: updatedProtocol.processId }});
                if (p) {
@@ -87,10 +82,11 @@ export async function POST(request: Request) {
                    where: { OR: [{ id: p.id }, { idSolicitacao: p.idSolicitacao }] },
                    data: { statusUpdatedAt: new Date() }
                  });
+                 finalProcess = await prisma.process.findUnique({ where: { id: updatedProtocol.processId }});
                }
            }
        }
-       return NextResponse.json({ success: true });
+       return NextResponse.json(finalProcess ? [finalProcess] : []);
     }
     
     // If it's a Layer 1 Update
@@ -103,8 +99,9 @@ export async function POST(request: Request) {
          processesToUpdate = await prisma.process.findMany({ where: { OR: [{ inscricao: inscricao }, { idSolicitacao: inscricao }] } });
        }
        
+       const mutated = [];
        for (const p of processesToUpdate) {
-         await prisma.process.update({
+         const updated = await prisma.process.update({
             where: { id: p.id },
             data: { 
               statusInscricao: status, 
@@ -114,6 +111,7 @@ export async function POST(request: Request) {
               ...(module === 'ambiental' ? { statusInscricaoAmbiental: status } : {}),
             }
          });
+         mutated.push(updated);
          await prisma.movement.create({
             data: {
                processId: p.id,
@@ -125,7 +123,7 @@ export async function POST(request: Request) {
             }
          });
        }
-       return NextResponse.json({ success: true });
+       return NextResponse.json(mutated);
     }
     
     // If it's a Layer 2 Update
@@ -178,9 +176,15 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
     if (module === 'travessia') dataToUpdate.statusTravessia = newStatus;
     
     if (extraData.protocol !== undefined) dataToUpdate.protocol = extraData.protocol;
-    if (extraData.numeroProcesso !== undefined) dataToUpdate.numeroProcesso = extraData.numeroProcesso;
-    if (extraData.dataAprovacao !== undefined) dataToUpdate.dataAprovacao = extraData.dataAprovacao ? new Date(extraData.dataAprovacao) : null;
-    if (extraData.dataProtocolo !== undefined) dataToUpdate.dataProtocolo = extraData.dataProtocolo ? new Date(extraData.dataProtocolo) : null;
+    // dataProtocolo and numeroProcesso are no longer in the Process model, they are handled in Protocol.
+    if (extraData.dataAprovacao !== undefined) {
+      if (extraData.dataAprovacao) {
+        const d = new Date(extraData.dataAprovacao);
+        if (!isNaN(d.getTime())) dataToUpdate.dataAprovacao = d;
+      } else {
+        dataToUpdate.dataAprovacao = null;
+      }
+    }
     if (extraData.valor !== undefined) dataToUpdate.valor = extraData.valor;
     if (extraData.dataVencimento !== undefined) dataToUpdate.dataVencimento = extraData.dataVencimento;
     if (extraData.tipo !== undefined) dataToUpdate.tipo = extraData.tipo;
@@ -296,12 +300,32 @@ async function cascadeProjectUpdate(processId: string, newStatus: string, user: 
           tipo_fluxo: 'AMBIENTAL'
         } 
       });
+      let dProtocolo = existingProtocol?.dataProtocolo;
+      if (extraData.dataProtocolo !== undefined) {
+          if (extraData.dataProtocolo) {
+              const d = new Date(extraData.dataProtocolo);
+              if (!isNaN(d.getTime())) dProtocolo = d;
+          } else {
+              dProtocolo = null;
+          }
+      }
+
+      let dAprovacao = existingProtocol?.dataAprovacao;
+      if (extraData.dataAprovacao !== undefined) {
+          if (extraData.dataAprovacao) {
+              const d = new Date(extraData.dataAprovacao);
+              if (!isNaN(d.getTime())) dAprovacao = d;
+          } else {
+              dAprovacao = null;
+          }
+      }
+
       const protocolData = {
         numeroProcesso: extraData.numeroProcesso !== undefined ? extraData.numeroProcesso : existingProtocol?.numeroProcesso,
         numero: extraData.protocol || existingProtocol?.numero || "N/A",
         valor: extraData.valor !== undefined ? extraData.valor : existingProtocol?.valor,
-        dataProtocolo: extraData.dataProtocolo ? new Date(extraData.dataProtocolo) : existingProtocol?.dataProtocolo,
-        dataAprovacao: extraData.dataAprovacao ? new Date(extraData.dataAprovacao) : existingProtocol?.dataAprovacao,
+        dataProtocolo: dProtocolo,
+        dataAprovacao: dAprovacao,
         status: newStatus,
         tipo_fluxo: 'AMBIENTAL'
       };

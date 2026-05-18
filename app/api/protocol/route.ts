@@ -57,6 +57,17 @@ export async function POST(request: Request) {
       }
     });
 
+    await prisma.movement.create({
+      data: {
+        processId: baseProcessId,
+        description: `Novo protocolo criado: ${protocolo} (Status: ${status})`,
+        user: body.user || 'Sistema',
+        module: moduleName || 'sistema',
+        tipo_fluxo: tipo_fluxo,
+        type: 'status'
+      }
+    });
+
     // Cascading Status: Protocolo -> Projeto -> Inscrição
     // If Protocol is updated to PROTOCOLADO or APROVADO, it impacts the Project.
     // We will do this in the update-status route or handle it if status comes initially set here.

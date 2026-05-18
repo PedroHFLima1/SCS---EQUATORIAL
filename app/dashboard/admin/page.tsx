@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { ShieldAlert, Users, Settings, Eye, Search, Filter, Edit2, Pencil, XCircle, X, AlertTriangle, Key, CheckCircle, Clock, Activity, AlertOctagon, RotateCcw, AlertCircle, Loader2, Trash2, Upload, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { createUser, updateUser, toggleUserStatus, resetUserPassword, getUsers, deleteUser } from '@/app/actions/users';
 import Papa from 'papaparse';
 import { useSocket } from '@/hooks/useSocket';
 import { DrillDownTable } from '@/components/DrillDownTable';
@@ -74,7 +73,12 @@ export default function AdminPage() {
     setLoadingUsers(true);
     setUsersError(null);
     try {
-      const result = await getUsers();
+      const res = await fetch('/api/users');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${res.status}`);
+      }
+      const result = await res.json();
       if (result.error) throw new Error(result.error);
       setUsers(result.users || []);
     } catch (err: any) {
@@ -315,26 +319,43 @@ export default function AdminPage() {
 
     try {
       if (editingUser) {
-        const result = await updateUser(editingUser.id, {
-          name: userFormData.name,
-          profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
-          company: userFormData.company,
-          password: userFormData.password || undefined,
+        const res = await fetch('/api/users/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'updateUser',
+            payload: {
+              id: editingUser.id,
+              data: {
+                name: userFormData.name,
+                profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
+                company: userFormData.company,
+                password: userFormData.password || undefined,
+              }
+            }
+          })
         });
-
+        const result = await res.json();
         if (result.error) {
           setUserFormError(result.error);
           return;
         }
       } else {
-        const result = await createUser({
-          email: userFormData.email,
-          name: userFormData.name,
-          profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
-          company: userFormData.company,
-          password: userFormData.password,
+        const res = await fetch('/api/users/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'createUser',
+            payload: {
+              email: userFormData.email,
+              name: userFormData.name,
+              profile: userFormData.profile as 'ADMIN' | 'GESTOR' | 'PARCEIRA',
+              company: userFormData.company,
+              password: userFormData.password,
+            }
+          })
         });
-
+        const result = await res.json();
         if (result.error) {
           setUserFormError(result.error);
           return;
@@ -359,7 +380,15 @@ export default function AdminPage() {
     if (userToToggle) {
       const user = users.find(u => u.id === userToToggle);
       if (user) {
-        const result = await toggleUserStatus(user.id, user.status);
+        const res = await fetch('/api/users/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'toggleUserStatus',
+            payload: { id: user.id, status: user.status }
+          })
+        });
+        const result = await res.json();
         if (result.error) {
           alert(result.error);
         } else {
@@ -383,7 +412,15 @@ export default function AdminPage() {
 
   const handleResetPassword = async () => {
     if (userToReset) {
-      const result = await resetUserPassword(userToReset);
+      const res = await fetch('/api/users/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'resetUserPassword',
+          payload: { id: userToReset }
+        })
+      });
+      const result = await res.json();
       if (result.error) {
         alert(result.error);
       } else {
@@ -396,7 +433,15 @@ export default function AdminPage() {
 
   const handleDeleteUser = async () => {
     if (userToDelete) {
-      const result = await deleteUser(userToDelete);
+      const res = await fetch('/api/users/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'deleteUser',
+          payload: { id: userToDelete }
+        })
+      });
+      const result = await res.json();
       if (result.error) {
         alert(result.error);
       } else {

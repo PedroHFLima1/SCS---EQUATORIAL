@@ -62,6 +62,7 @@ export async function getUsers() {
 
     return { success: true, users: usersWithProfiles };
   } catch (err: any) {
+    console.error('getUsers error:', err);
     return { error: err.message || 'Erro inesperado ao listar usuários.' };
   }
 }
