@@ -644,7 +644,7 @@ export default function AdminPage() {
       </div>
 
       {/* Tab Content: Gestão de Usuários Pro */}
-      {activeTab === 'usuarios' && (
+      <div className={activeTab === 'usuarios' ? 'block' : 'hidden'}>
         <div className="rounded-lg bg-white dark:bg-gray-900 shadow-sm border border-transparent dark:border-gray-800">
           <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 p-4">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">ACESSOS DO SISTEMA</h2>
@@ -750,10 +750,10 @@ export default function AdminPage() {
             </table>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Tab Content: Auditoria Master */}
-      {activeTab === 'auditoria' && (
+      <div className={activeTab === 'auditoria' ? 'block' : 'hidden'}>
         <div className="rounded-lg bg-white dark:bg-gray-900 shadow-sm border border-transparent dark:border-gray-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 dark:border-gray-800 p-4 gap-4">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">VISÃO GLOBAL DE PROJETOS</h2>
@@ -877,10 +877,10 @@ export default function AdminPage() {
             confirmCancel={(process) => confirmCancelProject(process.id)} 
           />
         </div>
-      )}
+      </div>
 
       {/* Tab Content: Configurações de SLA */}
-      {activeTab === 'configuracoes' && (
+      <div className={activeTab === 'configuracoes' ? 'block' : 'hidden'}>
         <div className="max-w-2xl rounded-lg bg-white dark:bg-gray-900 shadow-sm border border-transparent dark:border-gray-800 p-6">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-6">PARAMETRIZAÇÃO DO SISTEMA</h2>
           
@@ -912,10 +912,10 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Tab Content: Importação de Dados */}
-      {activeTab === 'importacao' && (
+      <div className={activeTab === 'importacao' ? 'block' : 'hidden'}>
         <div className="max-w-2xl rounded-lg bg-white dark:bg-gray-900 shadow-sm border border-transparent dark:border-gray-800 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">ATUALIZAÇÃO MASSIVA DE STATUS POR MÓDULO</h2>
@@ -996,7 +996,7 @@ export default function AdminPage() {
             )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Reset Password Modal */}
       {isResetModalOpen && (

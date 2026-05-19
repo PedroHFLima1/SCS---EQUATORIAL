@@ -388,18 +388,23 @@ export function DrillDownTable({ processes = [], role, moduleName = 'admin', ope
   const renderAcoes = (process: any) => {
     // Determine if it's layer 2 (projeto)
     const isProjeto = !process.isLayer1 && process.projeto;
-    const showTaxaButton = isProjeto && (moduleName === 'ambiental' || moduleName === 'travessia') && (role === 'GESTOR_TRAVESSIA' || role === 'GESTOR_AMBIENTAL' || role === 'ADMIN');
+    const showTaxaButton = isProjeto && (moduleName === 'ambiental' || moduleName === 'travessia') && (role?.startsWith('GESTOR') || role === 'ADMIN');
     
     return (
       <div className="flex justify-center space-x-3 items-center" onClick={(e) => e.stopPropagation()}>
         {showTaxaButton && (
-          <button 
-            onClick={() => handleToggleTaxa(process)} 
-            className={`p-1 ${process.taxaPaga ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'}`} 
-            title={process.taxaPaga ? "Taxa Paga (Clique para Desmarcar)" : "Informar se Taxa foi paga"}
-          >
-            <FileText className="h-4 w-4" />
-          </button>
+          <div className="flex items-center" title={process.taxaPaga ? "Taxa Paga" : "Taxa Não Paga"}>
+            <button
+              onClick={() => handleToggleTaxa(process)}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${process.taxaPaga ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+            >
+              <span className="sr-only">Toggle taxa paga</span>
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${process.taxaPaga ? 'translate-x-4' : 'translate-x-0'}`}
+              />
+            </button>
+            <span className={`ml-2 text-xs font-medium ${process.taxaPaga ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>Taxa</span>
+          </div>
         )}
         {openTreatment && (
           <button onClick={() => openTreatment(process)} className="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1" title="Tratar Processo">

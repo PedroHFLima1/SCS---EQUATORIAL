@@ -326,7 +326,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === 'pendentes' && selectedIds.size > 0 && role === 'PARCEIRA' && (
+          {activeTab === 'pendentes' && selectedIds.size > 0 && (role === 'PARCEIRA' || role === 'ADMIN') && (
             <>
               <Button size="sm" onClick={() => setIsBulkAprovarModalOpen(true)} className="gap-2 h-8 bg-green-600 hover:bg-green-700 text-white">
                 Aprovar ({selectedIds.size})
@@ -356,7 +356,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-gray-200 dark:border-gray-800 hover:bg-transparent">
-              {activeTab === 'pendentes' && role === 'PARCEIRA' && (
+              {activeTab === 'pendentes' && (role === 'PARCEIRA' || role === 'ADMIN') && (
                 <TableHead className="w-12 text-center">
                   <Checkbox 
                     checked={filteredItems.length > 0 && selectedIds.size === filteredItems.length}
@@ -391,7 +391,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
 
               return (
                 <TableRow key={item.id} className={`border-b border-gray-100 dark:border-gray-800/50`}>
-                  {activeTab === 'pendentes' && role === 'PARCEIRA' && (
+                  {activeTab === 'pendentes' && (role === 'PARCEIRA' || role === 'ADMIN') && (
                     <TableCell className="text-center">
                       <Checkbox 
                         checked={selectedIds.has(item.id)}
@@ -414,7 +414,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaAnuencia}
-                        disabled={isFinished || role !== 'PARCEIRA'}
+                        disabled={isFinished || (role !== 'PARCEIRA' && role !== 'ADMIN')}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaAnuencia', item.pendenciaAnuencia)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -426,7 +426,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaTravessia}
-                        disabled={isFinished || role !== 'PARCEIRA'}
+                        disabled={isFinished || (role !== 'PARCEIRA' && role !== 'ADMIN')}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaTravessia', item.pendenciaTravessia)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -438,7 +438,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                     <div className="flex justify-center items-center">
                       <Checkbox 
                         checked={item.pendenciaAmbiental}
-                        disabled={isFinished || role !== 'PARCEIRA'}
+                        disabled={isFinished || (role !== 'PARCEIRA' && role !== 'ADMIN')}
                         onCheckedChange={() => handleCheckboxChange(item, 'pendenciaAmbiental', item.pendenciaAmbiental)}
                         className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                       />
@@ -480,7 +480,7 @@ export function TriagemTable({ items }: TriagemTableProps) {
                           )}
                         </div>
                       ) : (
-                        role === 'PARCEIRA' ? (
+                        (role === 'PARCEIRA' || role === 'ADMIN') ? (
                           <div className="flex items-center gap-2">
                              <Button size="sm" onClick={() => openConfirmModal(item)} className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs px-3 shadow-sm rounded-md">
                                Aprovar

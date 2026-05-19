@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('./lib/prisma');
 async function main() {
   const p = await prisma.process.findFirst();
   console.log("Success");
